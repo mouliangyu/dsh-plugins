@@ -12,11 +12,15 @@ describe("session-control package", () => {
       name: string;
       private: boolean;
       exports: Record<string, unknown>;
+      files: string[];
     };
     expect(manifest.name).toBe("dsh-session-control");
     expect(manifest.private).toBe(false);
     expect(Object.keys(manifest.exports)).toEqual(
       expect.arrayContaining([".", "./invariant", "./client", "./package.json"]),
+    );
+    expect(manifest.files).toEqual(
+      expect.arrayContaining(["lib/types/**/*.d.ts", "TESTING.md"]),
     );
   });
 

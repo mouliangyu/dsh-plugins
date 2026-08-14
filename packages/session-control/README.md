@@ -69,6 +69,11 @@ incomplete, so this external repository uses narrow compile-time declarations
 for DSH services and ships verified bundles. DSH packages remain runtime peer
 dependencies supplied by the active profile.
 
+The behavior suite invokes the tools registered by the production `apply()`
+entry and covers lifecycle, authorization, project management, cleanup, and
+the settings HTTP boundary. See [TESTING.md](TESTING.md) for the release matrix
+and manual DSH smoke procedure.
+
 ## Safety Model
 
 Global access is enabled by default. The UI switch writes the durable

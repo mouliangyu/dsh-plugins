@@ -1,4 +1,4 @@
 # Bilingual-pair consistency record. Refresh both hashes whenever either README
 # changes after confirming that the English and Chinese documents stay aligned.
-README.md: 3e81b30f57e516685958bcab9a3553a2ec6c1fd4
-README.zh.md: 37a4bc9e57fcb928917fa8b28ec6096bfcef2da8
+README.md: 6adb7bb44e366951c6212ace5710353529530a1e
+README.zh.md: 61bcc46adbcca543f403ac75e8878c15da73f0c3

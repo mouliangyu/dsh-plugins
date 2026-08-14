@@ -917,9 +917,14 @@ function apply(ctx, config = {}) {
 				},
 				agentOptions: parent.options
 			});
-			handles.set(childSessionId, handle);
-			await workspace.attachSession(childSessionId);
-			handle.agent.followup(createCoordinatorMessage(task, parent.id));
+			try {
+				await workspace.attachSession(childSessionId);
+				handle.agent.followup(createCoordinatorMessage(task, parent.id));
+				handles.set(childSessionId, handle);
+			} catch (error) {
+				await handle.dispose();
+				throw error;
+			}
 			return `Created and started session ${String(childSessionId)}.`;
 		}
 	}));

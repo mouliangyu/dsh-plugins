@@ -58,6 +58,10 @@ pnpm --filter dsh-session-control pack --pack-destination ./artifacts
 DSH 编译期类型声明并提交经过验证的 bundle。运行时 DSH 包由当前 profile
 以 peer dependency 的形式提供。
 
+行为测试会调用正式 `apply()` 入口注册出来的工具，覆盖生命周期、权限、
+项目管理、失败清理和设置 HTTP 边界。发布矩阵和手动 DSH 冒烟流程见
+[TESTING.md](TESTING.md)。
+
 ## 安全模型
 
 全局访问默认开启。Web 开关会持久化写入
