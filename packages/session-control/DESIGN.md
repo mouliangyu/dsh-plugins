@@ -2,7 +2,9 @@
 
 ## Scope
 
-`session_control` adds project-scoped session orchestration. It leaves terminal execution, remote authentication, and browser rendering to existing DSH capability seams.
+`session_control` adds global-by-default session and project orchestration. It
+uses existing DSH services as the source of truth and contributes only the
+model-facing tools, authorization policy, and settings surface.
 
 ## Existing DSH Components
 
@@ -24,7 +26,6 @@ flowchart LR
   D --> E[Web sidebar]
   A -->|session_list/send/stop| B
   B --> C
-  R[Optional remote provider] -->|status and output events| C
 ```
 
 ## Authorization
@@ -46,8 +47,9 @@ session/project targets must belong to that workspace. Workspace registration
    and `workspace_sessions` expose durable top-level project management while
    retaining the registry's directory and session-log safety guarantees.
 
-## Remote Provider Requirements
+## Package Boundary
 
-An SSH or container provider must own credentials, host selection, workspace replication, process cancellation, and reconnection. It must use the local session id as its correlation id and append remote output/status to the local session event feed. That preserves one source of truth for agent context, session persistence, and Web UI.
-
-The provider must not grant the model raw SSH credentials or accept arbitrary hosts from model tool arguments. Host aliases, allowed workspace roots, and network policy belong in deployment configuration.
+Remote execution is intentionally outside this package. A separate remote
+plugin may integrate with DSH's subagent provider interfaces without coupling
+SSH credentials, host lifecycle, or path mapping to session discovery and
+project registration.

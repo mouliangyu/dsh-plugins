@@ -4,20 +4,48 @@
   "version": "0.1.0",
   "private": false,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mouliangyu/dsh-plugins.git",
+    "directory": "packages/session-control"
+  },
+  "homepage": "https://github.com/mouliangyu/dsh-plugins/tree/main/packages/session-control#readme",
+  "bugs": {
+    "url": "https://github.com/mouliangyu/dsh-plugins/issues"
+  },
   "publishConfig": {
     "access": "public"
   },
   "type": "module",
   "main": "lib/index.js",
   "exports": {
-    ".": "./lib/index.js",
-    "./client": "./lib/client.js",
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
   "files": [
-    "lib/**/*.js",
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
     "cordis.patch.yml"
   ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && tsdown",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -37,6 +65,7 @@
     "@deepseek-ai/dsh-client-ui-settings-plugins": "*",
     "@deepseek-ai/dsh-client-ui-slots": "*",
     "@deepseek-ai/dsh-host-webserver": "*",
+    "@deepseek-ai/dsh-invariants": "*",
     "@deepseek-ai/dsh-llm": "*",
     "@deepseek-ai/dsh-session": "*",
     "@deepseek-ai/dsh-session-persistence": "*",
@@ -46,7 +75,22 @@
     "@deepseek-ai/dsh-workspace": "*",
     "react": "*"
   },
-  "devDependencies": {
-    "@deepseek-ai/schemastery": "^3.18.1"
-  }
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": { "optional": true },
+    "@deepseek-ai/dsh-agent": { "optional": true },
+    "@deepseek-ai/dsh-client-runtime": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-settings-plugins": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-slots": { "optional": true },
+    "@deepseek-ai/dsh-host-webserver": { "optional": true },
+    "@deepseek-ai/dsh-invariants": { "optional": true },
+    "@deepseek-ai/dsh-llm": { "optional": true },
+    "@deepseek-ai/dsh-session": { "optional": true },
+    "@deepseek-ai/dsh-session-persistence": { "optional": true },
+    "@deepseek-ai/dsh-session-query": { "optional": true },
+    "@deepseek-ai/dsh-settings": { "optional": true },
+    "@deepseek-ai/dsh-tools": { "optional": true },
+    "@deepseek-ai/dsh-workspace": { "optional": true },
+    "react": { "optional": true }
+  },
+  "devDependencies": {}
 }

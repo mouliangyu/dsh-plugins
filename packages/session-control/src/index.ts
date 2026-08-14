@@ -203,7 +203,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       ctx.webServer.register({
         kind: "exact",
         path: SETTINGS_ROUTE,
-        handler: (req, res) =>
+        handler: (req: IncomingMessage, res: ServerResponse) =>
           handleSettingsRequest(req, res, settings),
       }),
     "session_control.settingsRoute",

@@ -1,13 +1,16 @@
-# Session & Workspace Control
+# dsh-session-control
 
-The Cordis plugin id is `session_control`. Its UI title is **Session & Workspace Control**
-because it manages both top-level projects and their sessions.
+English | [中文](README.zh.md)
+
+Model-facing session and top-level project management for DeepSeek Harness. The
+Cordis plugin id is `session_control`; the Web settings title is **Session &
+Workspace Control**.
 
 Global access is enabled by default. Turn it off in **Settings > Plugins >
 Plugin configuration > Session & Workspace Control** to restrict operations to
 the caller's current workspace.
 
-## What It Adds
+## Tool Contract
 
 | Tool              | Action                                                                                   |
 | ----------------- | ---------------------------------------------------------------------------------------- |
@@ -27,14 +30,14 @@ Pass a `workspace_id` returned by `workspace_list` to `session_create` to create
 the session in another project. Without it, creation uses the caller's current
 workspace so the new session has a concrete filesystem identity.
 
-New sessions are regular workspace sessions. They therefore appear in the existing DSH Web sidebar without a custom React UI. The built-in sidebar already renders workspace sessions and their live state.
+New sessions are ordinary DSH workspace sessions. They appear in the existing
+Web sidebar and use its normal live status, title, and persistence behavior.
 
 ## Install
 
-This package includes prebuilt host and Web client JavaScript and retains its
-TypeScript source for review. Local `link:` installation is persistent across
-DSH restarts because the Web profile records the package as a dependency and
-bundle layer.
+This package includes prebuilt Host and Web client bundles. Local `link:`
+installation persists across DSH restarts because the profile records the
+package dependency and bundle layer.
 
 ```sh
 cd deepseek-harness
@@ -42,7 +45,29 @@ pnpm dsh plugin --profile web add link:/absolute/path/to/dsh-plugins/packages/se
 pnpm dsh web
 ```
 
-The package declares its own DSH bundle, so a successful `plugin add` activates `cordis.patch.yml` without running a source build.
+The package declares its DSH bundle in `cordis.patch.yml`, so installation does
+not require a source build.
+
+## Development
+
+From the repository root:
+
+```sh
+pnpm install
+pnpm run check
+pnpm --filter dsh-session-control pack --pack-destination ./artifacts
+```
+
+The source layout follows DSH hybrid Host/Web packages: `src/index.ts` is the
+Host entry, `src/client/index.tsx` is the Web entry, and `src/invariant.ts` is
+the invariant companion. Generated declarations are written under
+`lib/types/`; distributable bundles are `lib/index.js`, `lib/invariant.js`, and
+`lib/client.js`.
+
+Upstream's published client package dependency closure is currently
+incomplete, so this external repository uses narrow compile-time declarations
+for DSH services and ships verified bundles. DSH packages remain runtime peer
+dependencies supplied by the active profile.
 
 ## Safety Model
 
@@ -54,13 +79,9 @@ Archiving is disabled by default because it changes the user's visible history.
 Set `allowArchive: true` only together with a user-confirmation policy in the
 deployment.
 
-## Remote Extension Point
-
-This plugin manages the DSH session lifecycle, not execution placement. To run a created child on another host, add a dedicated `ctx.subagents` provider that owns SSH authentication, remote process lifecycle, path mapping, log streaming, and cancellation. Use that provider for remote delegation; keep this plugin responsible for project-level session discovery and UI-visible state.
-
 ## Current Limitations
 
-- It does not supply an SSH, container, or workspace-sync implementation.
+- Remote execution belongs to a separate plugin and is not implemented here.
 - It does not delete session logs.
 - Session titles are produced by the normal DSH title pipeline and may initially appear as `untitled`.
 - The package targets the upstream developer preview and must be checked against the installed DSH version before production use.

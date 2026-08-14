@@ -1,1 +1,4 @@
 node_modules/
+lib/*.mjs
+lib/types/**/*.js
+lib/types/**/*.map
