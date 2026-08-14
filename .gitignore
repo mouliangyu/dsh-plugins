@@ -1,5 +1,4 @@
 node_modules/
 artifacts/
-**/lib/
 **/.tsbuildinfo
 .DS_Store
