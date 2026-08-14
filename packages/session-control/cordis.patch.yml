@@ -1,0 +1,7 @@
+- insert:
+    - id: session_control
+      name: "dsh-session-control"
+      config:
+        allowGlobalAccess: true
+        allowArchive: false
+        maxManagedSessions: 12

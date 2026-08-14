@@ -1,0 +1,9 @@
+{
+  "name": "dsh-community-plugins",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "pack": "pnpm -r pack --pack-destination ./artifacts"
+  }
+}
