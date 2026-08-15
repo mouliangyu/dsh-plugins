@@ -9,6 +9,7 @@ shares build conventions, documentation, and compatibility checks.
 | Package | Purpose |
 | --- | --- |
 | `session-control` | Global session and workspace management, with a Web settings switch. |
+| `dsh-remote` | Persistent top-level remote projects and live root sessions over SSH. |
 
 The repository is intentionally independent from the upstream
 `deepseek-harness` repository. Upstream currently does not accept external PRs;
@@ -20,7 +21,7 @@ plugin discoverable.
 ```text
 packages/
   session-control/
-  remote/              # future remote execution plugin
+  remote/
   shared/              # future shared helpers; keep runtime-free where possible
 ```
 
@@ -36,6 +37,8 @@ Install the package directly from its monorepo path:
 pnpm dsh plugin --profile web add \
   link:/absolute/path/to/dsh-plugins/packages/session-control
 ```
+
+Replace the final path with `packages/remote` to develop `dsh-remote`.
 
 Build one package from its directory, or run `pnpm -r run build` after all
 packages have adopted the shared build scripts.

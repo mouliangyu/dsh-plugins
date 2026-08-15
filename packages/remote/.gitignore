@@ -1,0 +1,9 @@
+node_modules/
+lib/*.cjs
+lib/*.map
+lib/*.tsbuildinfo
+lib/style.css
+lib/local.js
+lib/local-contract.js
+lib/types/**/*.js
+lib/types/**/*.map
