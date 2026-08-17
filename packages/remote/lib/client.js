@@ -18,27 +18,27 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RemoteSettingsSection_module_css_default = {
-			"composer": "ghiA-a_composer",
 			"root": "ghiA-a_root",
-			"listButton": "ghiA-a_listButton",
-			"remote-spin": "ghiA-a_remote-spin",
-			"spinning": "ghiA-a_spinning",
-			"events": "ghiA-a_events",
-			"columnTitle": "ghiA-a_columnTitle",
-			"rowMain": "ghiA-a_rowMain",
+			"formActions": "ghiA-a_formActions",
+			"column": "ghiA-a_column",
+			"header": "ghiA-a_header",
 			"columns": "ghiA-a_columns",
+			"row": "ghiA-a_row",
+			"rowMain": "ghiA-a_rowMain",
+			"iconButton": "ghiA-a_iconButton",
+			"spinning": "ghiA-a_spinning",
+			"remote-spin": "ghiA-a_remote-spin",
 			"form": "ghiA-a_form",
+			"projectForm": "ghiA-a_projectForm",
+			"composer": "ghiA-a_composer",
+			"columnTitle": "ghiA-a_columnTitle",
 			"hostEmpty": "ghiA-a_hostEmpty",
+			"event": "ghiA-a_event",
 			"error": "ghiA-a_error",
 			"sessionPane": "ghiA-a_sessionPane",
-			"row": "ghiA-a_row",
-			"formActions": "ghiA-a_formActions",
-			"projectForm": "ghiA-a_projectForm",
 			"empty": "ghiA-a_empty",
-			"iconButton": "ghiA-a_iconButton",
-			"column": "ghiA-a_column",
-			"event": "ghiA-a_event",
-			"header": "ghiA-a_header"
+			"events": "ghiA-a_events",
+			"listButton": "ghiA-a_listButton"
 		};
 		//#endregion
 		//#region src/client/RemoteSettingsSection.tsx

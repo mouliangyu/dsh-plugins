@@ -25,6 +25,7 @@ describe('remote bootstrap', () => {
       .map(match => Buffer.from(match.groups?.value ?? '', 'base64').toString('utf8'))
       .join('\n')
     expect(decodedValues).toContain("pathModule.join(process.env.HOME, '.dsh', 'remote-projects.json')")
+    expect(decodedValues).toContain("JSON.stringify(patches, null, 2) + '\\n'")
     expect(script).toContain('systemctl --user restart dsh-remote-host.service')
     expect(script).toContain('launchctl bootstrap')
     expect(script).toContain('nohup "$runtime/node" "$host_script"')

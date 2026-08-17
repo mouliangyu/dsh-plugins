@@ -88,7 +88,7 @@ const patches = [{ insert: [{
   name: 'dsh-remote/host',
   config: { socketPath, projectsFile },
 }] }]
-fs.writeFileSync(path, JSON.stringify(patches, null, 2) + '\n')
+fs.writeFileSync(path, JSON.stringify(patches, null, 2) + '\\n')
 `
   const unit = [
     '[Unit]',
