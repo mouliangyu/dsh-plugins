@@ -18,27 +18,27 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RemoteSettingsSection_module_css_default = {
-			"columns": "ghiA-a_columns",
-			"column": "ghiA-a_column",
-			"spinning": "ghiA-a_spinning",
-			"empty": "ghiA-a_empty",
+			"composer": "ghiA-a_composer",
+			"root": "ghiA-a_root",
 			"listButton": "ghiA-a_listButton",
-			"iconButton": "ghiA-a_iconButton",
+			"remote-spin": "ghiA-a_remote-spin",
+			"spinning": "ghiA-a_spinning",
+			"events": "ghiA-a_events",
 			"columnTitle": "ghiA-a_columnTitle",
 			"rowMain": "ghiA-a_rowMain",
+			"columns": "ghiA-a_columns",
 			"form": "ghiA-a_form",
-			"root": "ghiA-a_root",
-			"formActions": "ghiA-a_formActions",
-			"remote-spin": "ghiA-a_remote-spin",
-			"projectForm": "ghiA-a_projectForm",
 			"hostEmpty": "ghiA-a_hostEmpty",
-			"sessionPane": "ghiA-a_sessionPane",
-			"composer": "ghiA-a_composer",
 			"error": "ghiA-a_error",
-			"header": "ghiA-a_header",
-			"events": "ghiA-a_events",
+			"sessionPane": "ghiA-a_sessionPane",
 			"row": "ghiA-a_row",
-			"event": "ghiA-a_event"
+			"formActions": "ghiA-a_formActions",
+			"projectForm": "ghiA-a_projectForm",
+			"empty": "ghiA-a_empty",
+			"iconButton": "ghiA-a_iconButton",
+			"column": "ghiA-a_column",
+			"event": "ghiA-a_event",
+			"header": "ghiA-a_header"
 		};
 		//#endregion
 		//#region src/client/RemoteSettingsSection.tsx

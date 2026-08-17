@@ -10,7 +10,7 @@ An SSH command tool cannot provide a remote project as a top-level interactive s
 
 ## Decision
 
-`dsh-remote` separates local management from remote execution. The package root is the Remote Host service, and `/host` is its explicit alias. The `/local` export discovers explicit aliases from the user OpenSSH config and recursive `Include` files, stores selected SSH connection records, runs SSH stdio bridges, and exposes project and root-session management plus SSE; the package manifest contributes the browser bundle. Wildcard host rules remain OpenSSH-only. The Remote Host service runs inside a persistent remote DSH daemon and owns configured project roots, root sessions, agent handles, and persistence-backed replay.
+`dsh-remote` separates local management from remote execution. The package root is the local Web Host plugin, while `/host` is the explicit Remote Host service used by the remote daemon. The `/local` export is retained as an alias; it discovers explicit aliases from the user OpenSSH config and recursive `Include` files, stores selected SSH connection records, runs SSH stdio bridges, and exposes project and root-session management plus SSE. Wildcard host rules remain OpenSSH-only. The Remote Host service runs inside a persistent remote DSH daemon and owns configured project roots, root sessions, agent handles, and persistence-backed replay.
 
 The daemon listens on a user-private Unix socket. `dsh-remote-host connect` copies stdio to that socket, so the SSH process is a replaceable transport rather than the session owner. `systemd --user` or `launchd` keeps the daemon alive when available; a detached process provides SSH-disconnect survival without reboot supervision when neither service manager is usable.
 

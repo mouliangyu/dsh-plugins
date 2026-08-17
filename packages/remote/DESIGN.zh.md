@@ -10,7 +10,7 @@ SSH command tool 无法把远端项目提供为顶层交互式 session。一次�
 
 ## 决策
 
-`dsh-remote` 将本地管理与远端执行分开。包根是 Remote Host service，`/host` 是它的明确 alias。`/local` export 从用户 OpenSSH config 和递归 `Include` 文件发现明确的 aliases，保存选中的 SSH 连接记录、运行 SSH stdio bridges，并通过 SSE 提供项目和 root-session 管理；package manifest 贡献 browser bundle。通配 host rules 仍只由 OpenSSH 处理。Remote Host service 在持久化远端 DSH daemon 内运行，拥有配置的项目根目录、root sessions、agent handles 和基于持久化的回放。
+`dsh-remote` 将本地管理与远端执行分开。包根是本地 Web Host plugin，`/host` 是远端 daemon 使用的明确 Remote Host service；`/local` export 保留为别名。包根从用户 OpenSSH config 和递归 `Include` 文件发现明确的 aliases，保存选中的 SSH 连接记录、运行 SSH stdio bridges，并通过 SSE 提供项目和 root-session 管理。通配 host rules 仍只由 OpenSSH 处理。Remote Host service 在持久化远端 DSH daemon 内运行，拥有配置的项目根目录、root sessions、agent handles 和基于持久化的回放。
 
 daemon 监听用户私有 Unix socket。`dsh-remote-host connect` 在 stdio 与该 socket 之间复制数据，因此 SSH process 是可替换 transport，而不是 session owner。可用时由 `systemd --user` 或 `launchd` 保持 daemon 运行；两者都不可用时，detached process 提供跨越 SSH 断连的能力，但不提供重启监督。
 

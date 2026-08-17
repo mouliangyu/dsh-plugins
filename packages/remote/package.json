@@ -16,15 +16,15 @@
     "url": "https://github.com/mouliangyu/dsh-plugins/issues"
   },
   "type": "module",
-  "main": "lib/index.js",
-  "types": "lib/types/index.d.ts",
+  "main": "lib/types/local.js",
+  "types": "lib/types/local.d.ts",
   "bin": {
     "dsh-remote-host": "lib/bin.js"
   },
   "exports": {
     ".": {
-      "types": "./lib/types/index.d.ts",
-      "default": "./lib/index.js"
+      "types": "./lib/types/local.d.ts",
+      "default": "./lib/types/local.js"
     },
     "./host": {
       "types": "./lib/types/index.d.ts",
