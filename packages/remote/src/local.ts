@@ -1,198 +1,183 @@
-/** Local Web Host plugin for SSH-backed remote project management. */
+/** Local SSH authority manager and transparent official-API proxy. */
 
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import type { IncomingMessage, ServerResponse } from 'node:http'
+import { spawn } from 'node:child_process'
+import { request as requestHttp } from 'node:http'
+import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from 'node:http'
+import type { Duplex } from 'node:stream'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-host-webserver'
+import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import { settingsNamespace, type SettingsScope } from '@deepseek-ai/dsh-settings'
-import { RemoteProjectClient, type RemoteSessionEvent } from './index.ts'
-import type { RemoteAction, RemoteConnectionConfig, RemoteProjectView, RemoteStateView, SshHostView } from './local-contract.ts'
+import { WebSocket, WebSocketServer } from 'ws'
+import type { RawData } from 'ws'
+import type { RemoteAction, RemoteConnectionConfig, RemoteStateView, SshHostView } from './local-contract.ts'
 import { discoverSshHostAliases } from './ssh-config.ts'
-import { buildRemoteBootstrapScript, packRemotePlugin } from './bootstrap.ts'
+import { openRemoteApiForward, type RemoteApiForward } from './transparent.ts'
 
 export type * from './local-contract.ts'
 
-export const name = 'dsh-remote-local'
+export const name = 'dsh-remote'
 export const inject = ['settings', 'webServer']
 
-const API_PATH = '/dsh-remote/api'
-const EVENTS_PATH = '/dsh-remote/events'
+const CONTROL_PATH = '/dsh-remote/control'
+const AUTHORITY_PREFIX = '/dsh-remote/authority'
 const MAX_BODY_BYTES = 1024 * 1024
 const ID = /^[a-z][a-z0-9-]{0,63}$/
 const SSH_HOST = /^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$/
-const SOCKET_PATH = /^\/[A-Za-z0-9_./-]+$/
-const OFFICIAL_DSH_PACKAGE = /^@deepseek-ai\/dsh@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
-const DEFAULT_REMOTE_DSH_PACKAGE = '@deepseek-ai/dsh@0.1.0-rc.6'
+const SETTINGS_NS = settingsNamespace('dsh-remote')
 
 /** Local plugin composition defaults. */
 export interface LocalConfig {
   connections?: RemoteConnectionConfig[]
-  /** Exact official DSH release installed into the private remote runtime. */
-  remoteDshPackage?: string
-  /** OpenSSH connection timeout applied to bridges and bootstrap actions. */
+  /** OpenSSH connection timeout applied to start and forwarding operations. */
   sshConnectTimeoutSeconds?: number
-  /** Maximum duration of remote package installation and daemon startup. */
-  bootstrapTimeoutMs?: number
+  /** Start saved authorities in the background when the plugin loads. */
+  autoConnect?: boolean
 }
 
 export const Config: z<LocalConfig> = z.object({
   connections: z.array(z.object({
     id: z.string().required(),
     host: z.string().required(),
-    socketPath: z.string().required(),
+    remotePort: z.number().min(1).max(65535).default(3090),
   })).default([]),
-  remoteDshPackage: z.string().default(DEFAULT_REMOTE_DSH_PACKAGE),
   sshConnectTimeoutSeconds: z.number().min(1).max(120).default(10),
-  bootstrapTimeoutMs: z.number().min(1_000).max(30 * 60_000).default(5 * 60_000),
+  autoConnect: z.boolean().default(true),
 })
 
-const SETTINGS_NS = settingsNamespace('dsh-remote')
-
-interface HelloResult { protocolVersion: number; projects: RemoteProjectView[] }
-class Bridge {
-  readonly client: RemoteProjectClient
-  readonly process: ChildProcessWithoutNullStreams
-  error: string | undefined
-
-  constructor(readonly config: RemoteConnectionConfig, connectTimeoutSeconds: number, onExit: (error?: string) => void) {
-    this.process = spawn('ssh', [
-      '-T', '-o', 'BatchMode=yes', '-o', `ConnectTimeout=${connectTimeoutSeconds}`, config.host,
-      `exec "$HOME/.local/share/dsh-remote/node" "$HOME/.dsh/profiles/dsh-remote/node_modules/dsh-remote/lib/bin.js" connect ${config.socketPath}`,
-    ], { stdio: ['pipe', 'pipe', 'pipe'] })
-    this.client = new RemoteProjectClient(this.process.stdout, this.process.stdin)
-    let stderr = ''
-    this.process.stderr.setEncoding('utf8')
-    this.process.stderr.on('data', (chunk: string) => { stderr = (stderr + chunk).slice(-4096) })
-    this.process.once('error', (error) => { onExit(error.message) })
-    this.process.once('exit', (code, signal) => {
-      const detail = stderr.trim()
-      onExit(detail || `ssh exited (${code === null ? signal : String(code)})`)
-    })
-  }
-
-  close(): void {
-    this.client.close()
-    this.process.kill('SIGTERM')
-  }
-}
-
-class LocalRemoteManager {
-  private readonly bridges = new Map<string, Bridge>()
+class RemoteAuthorityManager {
+  private readonly forwards = new Map<string, RemoteApiForward>()
   private readonly errors = new Map<string, string>()
+  private readonly upgradeDisposers = new Map<string, () => void>()
 
   constructor(
     private readonly settings: SettingsScope<{ connections: RemoteConnectionConfig[] }>,
-    private readonly options: Required<Pick<LocalConfig, 'remoteDshPackage' | 'sshConnectTimeoutSeconds' | 'bootstrapTimeoutMs'>>,
-  ) {}
+    private readonly webServer: WebServer,
+    private readonly connectTimeoutSeconds: number,
+  ) {
+    for (const connection of settings.get().connections) this.registerUpgrades(connection.id)
+  }
 
   state(): RemoteStateView {
-    return { connections: this.settings.get().connections.map((connection) => {
-      const error = this.errors.get(connection.id)
-      return {
-        ...connection,
-        connected: this.bridges.has(connection.id),
-        ...(error === undefined ? {} : { error }),
-      }
-    }) }
+    return { connections: this.settings.get().connections.map((connection) => ({
+      ...connection,
+      connected: this.forwards.has(connection.id),
+      basePath: authorityBasePath(connection.id),
+      ...(this.errors.has(connection.id) ? { error: this.errors.get(connection.id) } : {}),
+    })) }
   }
 
   async run(action: RemoteAction): Promise<unknown> {
     switch (action.action) {
-      case 'discoverHosts': return { hosts: (await discoverSshHostAliases()).map<SshHostView>(alias => ({ alias })) }
-      case 'bootstrapHost': return this.bootstrap(action.connectionId)
-      case 'createProject': return this.createProject(action.connectionId, action.projectId, action.projectRoot)
+      case 'discoverHosts':
+        return { hosts: (await discoverSshHostAliases()).map<SshHostView>(alias => ({ alias })) }
       case 'saveConnection': {
         validateConnection(action.connection)
+        await this.disconnect(action.connection.id)
         const current = this.settings.get().connections
         const next = [...current.filter(entry => entry.id !== action.connection.id), action.connection]
-        this.disconnect(action.connection.id)
         await this.settings.replace({ connections: next })
+        this.registerUpgrades(action.connection.id)
         return this.state()
       }
       case 'removeConnection': {
-        this.disconnect(action.connectionId)
-        await this.settings.replace({ connections: this.settings.get().connections.filter(entry => entry.id !== action.connectionId) })
+        await this.disconnect(action.connectionId)
+        this.upgradeDisposers.get(action.connectionId)?.()
+        this.upgradeDisposers.delete(action.connectionId)
+        await this.settings.replace({
+          connections: this.settings.get().connections.filter(entry => entry.id !== action.connectionId),
+        })
         return this.state()
       }
-      case 'connect': return this.hello(action.connectionId)
-      case 'disconnect': this.disconnect(action.connectionId); return this.state()
-      case 'projects': return this.hello(action.connectionId)
-      case 'sessions': return this.client(action.connectionId).list(action.projectId)
-      case 'createSession': return this.client(action.connectionId).create(action.projectId)
-      case 'resumeSession': return this.client(action.connectionId).resume(action.projectId, action.sessionId)
-      case 'prompt': return this.client(action.connectionId).prompt(action.projectId, action.sessionId, [{ type: 'text', text: action.text }])
-      case 'cancel': return this.client(action.connectionId).cancel(action.projectId, action.sessionId)
+      case 'connect':
+        await this.connect(action.connectionId)
+        return this.state()
+      case 'disconnect':
+        await this.disconnect(action.connectionId)
+        return this.state()
     }
   }
 
-  async subscribe(
-    connectionId: string,
-    projectId: string,
-    sessionId: string,
-    fromSeq: number,
-    listener: (event: RemoteSessionEvent) => void,
-  ): Promise<() => void> {
-    const client = this.client(connectionId)
-    const dispose = client.onEvent((event) => {
-      if (event.projectId === projectId && event.sessionId === sessionId) listener(event)
-    })
+  async connect(connectionId: string): Promise<void> {
+    if (this.forwards.has(connectionId)) return
+    const config = this.connectionConfig(connectionId)
     try {
-      await client.subscribe(projectId, sessionId, fromSeq)
-      return dispose
-    } catch (error) {
-      dispose()
-      throw error
-    }
-  }
-
-  dispose(): void { for (const id of [...this.bridges.keys()]) this.disconnect(id) }
-
-  private async hello(connectionId: string): Promise<HelloResult> {
-    const bridge = this.bridge(connectionId)
-    try {
-      const result = await bridge.client.hello() as HelloResult
+      await ensureRemoteWebHost(config, this.connectTimeoutSeconds)
+      const forward = await openRemoteApiForward({
+        host: config.host,
+        remotePort: config.remotePort,
+        connectTimeoutSeconds: this.connectTimeoutSeconds,
+      })
+      await waitForTcp(forward.localPort, this.connectTimeoutSeconds * 1000)
+      this.forwards.set(connectionId, forward)
       this.errors.delete(connectionId)
-      return result
+      forward.process.once('exit', (code, signal) => {
+        if (this.forwards.get(connectionId) !== forward) return
+        this.forwards.delete(connectionId)
+        this.errors.set(connectionId, `ssh forward exited (${code === null ? signal : String(code)})`)
+      })
     } catch (error) {
-      this.disconnect(connectionId)
       const message = errorMessage(error)
       this.errors.set(connectionId, message)
       throw new Error(message)
     }
   }
 
-  private client(connectionId: string): RemoteProjectClient { return this.bridge(connectionId).client }
-
-  private async bootstrap(connectionId: string): Promise<HelloResult> {
-    const config = this.connectionConfig(connectionId)
-    const archive = await packRemotePlugin()
-    await runSshScript(config, buildRemoteBootstrapScript({
-      socketPath: config.socketPath,
-      dshPackage: this.options.remoteDshPackage,
-      remotePackageArchive: archive,
-    }), this.options)
-    this.disconnect(connectionId)
-    return this.hello(connectionId)
+  async disconnect(connectionId: string): Promise<void> {
+    const forward = this.forwards.get(connectionId)
+    if (forward === undefined) return
+    this.forwards.delete(connectionId)
+    await forward.close()
   }
 
-  private createProject(connectionId: string, projectId: string, projectRoot: string): Promise<unknown> {
-    if (!/^[a-z][a-z0-9-]{0,63}$/.test(projectId)) throw new Error('project id must start with a lowercase letter and contain only lowercase letters, digits, or dashes')
-    if (!projectRoot.startsWith('/')) throw new Error('project root must be an absolute remote path')
-    return this.client(connectionId).createProject(projectId, projectRoot)
-  }
-
-  private bridge(connectionId: string): Bridge {
-    const existing = this.bridges.get(connectionId)
-    if (existing !== undefined) return existing
-    const config = this.connectionConfig(connectionId)
-    const bridge = new Bridge(config, this.options.sshConnectTimeoutSeconds, (error) => {
-      if (this.bridges.get(connectionId) !== bridge) return
-      this.bridges.delete(connectionId)
-      if (error !== undefined) this.errors.set(connectionId, error)
+  proxyHttp(connectionId: string, req: IncomingMessage, res: ServerResponse): void {
+    const forward = this.forwards.get(connectionId)
+    if (forward === undefined) { json(res, 503, { error: `remote authority is not connected: ${connectionId}` }); return }
+    const upstreamPath = upstreamApiPath(connectionId, req.url)
+    if (upstreamPath === undefined) { json(res, 404, { error: 'unknown remote API path' }); return }
+    const upstream = requestHttp({
+      host: '127.0.0.1',
+      port: forward.localPort,
+      method: req.method,
+      path: upstreamPath,
+      headers: upstreamHeaders(req.headers, forward.localPort),
+    }, (response) => {
+      res.writeHead(response.statusCode ?? 502, response.headers)
+      response.pipe(res)
     })
-    this.bridges.set(connectionId, bridge)
-    return bridge
+    upstream.once('error', error => { if (!res.headersSent) json(res, 502, { error: error.message }); else res.destroy(error) })
+    req.pipe(upstream)
+  }
+
+  proxyUpgrade(connectionId: string, apiPath: string, req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    const forward = this.forwards.get(connectionId)
+    if (forward === undefined) { rejectUpgrade(socket, 503, 'remote authority is not connected'); return }
+    const upstream = new WebSocket(`ws://127.0.0.1:${String(forward.localPort)}${apiPath}`, {
+      headers: upstreamHeaders(req.headers, forward.localPort),
+    })
+    const server = new WebSocketServer({ noServer: true })
+    let accepted = false
+    const fail = (error: Error): void => {
+      if (!accepted) rejectUpgrade(socket, 502, error.message)
+      upstream.close()
+      server.close()
+    }
+    upstream.once('error', fail)
+    upstream.once('open', () => {
+      server.handleUpgrade(req, socket, head, (downstream) => {
+        accepted = true
+        downstream.on('message', (data, isBinary) => { relayWebSocketMessage(upstream, data, isBinary) })
+        upstream.on('message', (data, isBinary) => { relayWebSocketMessage(downstream, data, isBinary) })
+        downstream.once('close', () => { upstream.close(); server.close() })
+        upstream.once('close', () => { downstream.close(); server.close() })
+      })
+    })
+  }
+
+  async dispose(): Promise<void> {
+    await Promise.all([...this.forwards.keys()].map(id => this.disconnect(id)))
+    for (const dispose of this.upgradeDisposers.values()) dispose()
+    this.upgradeDisposers.clear()
   }
 
   private connectionConfig(connectionId: string): RemoteConnectionConfig {
@@ -201,83 +186,143 @@ class LocalRemoteManager {
     return config
   }
 
-  private disconnect(connectionId: string): void {
-    const bridge = this.bridges.get(connectionId)
-    if (bridge === undefined) return
-    this.bridges.delete(connectionId)
-    bridge.close()
+  private registerUpgrades(connectionId: string): void {
+    if (this.upgradeDisposers.has(connectionId)) return
+    const disposers = ['/api/events.mux', '/api/events.host'].map(apiPath => this.webServer.registerUpgrade({
+      path: `${authorityBasePath(connectionId)}${apiPath}`,
+      handler: (req, socket, head) => { this.proxyUpgrade(connectionId, apiPath, req, socket, head) },
+    }))
+    this.upgradeDisposers.set(connectionId, () => { for (const dispose of disposers) dispose() })
   }
 }
 
-/** Mount the local connection registry and browser endpoints. */
+/** Mount the local connection registry and transparent proxy routes. */
 export function apply(ctx: Context, config: LocalConfig = {}): void {
   const base = { connections: config.connections ?? [] }
   for (const connection of base.connections) validateConnection(connection)
-  const remoteDshPackage = config.remoteDshPackage ?? DEFAULT_REMOTE_DSH_PACKAGE
-  if (!OFFICIAL_DSH_PACKAGE.test(remoteDshPackage)) {
-    throw new Error('remoteDshPackage must be an exact official release such as @deepseek-ai/dsh@0.1.0-rc.6')
-  }
   const settings = ctx.settings.register(SETTINGS_NS, z.object({
     connections: z.array(z.object({
-      id: z.string().required(), host: z.string().required(), socketPath: z.string().required(),
+      id: z.string().required(),
+      host: z.string().required(),
+      remotePort: z.number().min(1).max(65535).default(3090),
     })).default([]),
   }), { base })
-  const manager = new LocalRemoteManager(settings, {
-    remoteDshPackage,
-    sshConnectTimeoutSeconds: config.sshConnectTimeoutSeconds ?? 10,
-    bootstrapTimeoutMs: config.bootstrapTimeoutMs ?? 5 * 60_000,
-  })
-  ctx.effect(() => () => { manager.dispose() }, 'dsh-remote.local.bridges')
+  const manager = new RemoteAuthorityManager(
+    settings,
+    ctx.webServer,
+    config.sshConnectTimeoutSeconds ?? 10,
+  )
+  ctx.effect(() => () => manager.dispose(), 'dsh-remote.authorities')
   ctx.effect(() => ctx.webServer.register({
-    kind: 'exact', path: API_PATH,
+    kind: 'exact', path: CONTROL_PATH,
     handler: async (req, res) => {
-      if (req.method === 'GET') {  json(res, 200, manager.state()); return }
-      if (req.method !== 'POST') {  json(res, 405, { error: 'method not allowed' }); return }
-      try {
-        const action = await readAction(req)
-        json(res, 200, { value: await manager.run(action) }); return
-      } catch (error) {
-        json(res, 400, { error: errorMessage(error) }); return
-      }
+      if (req.method === 'GET') { json(res, 200, manager.state()); return }
+      if (req.method !== 'POST') { json(res, 405, { error: 'method not allowed' }); return }
+      try { json(res, 200, { value: await manager.run(await readAction(req)) }) }
+      catch (error) { json(res, 400, { error: errorMessage(error) }) }
     },
-  }), 'dsh-remote.local.api')
+  }), 'dsh-remote.control')
   ctx.effect(() => ctx.webServer.register({
-    kind: 'exact', path: EVENTS_PATH,
-    handler: async (req, res) => { await serveEvents(manager, req, res) },
-  }), 'dsh-remote.local.events')
+    kind: 'prefix', path: AUTHORITY_PREFIX,
+    handler: (req, res) => {
+      const connectionId = authorityIdFromRequest(req.url)
+      if (connectionId === undefined) { json(res, 404, { error: 'unknown remote authority path' }); return }
+      manager.proxyHttp(connectionId, req, res)
+    },
+  }), 'dsh-remote.proxy')
+  if (config.autoConnect ?? true) {
+    for (const connection of settings.get().connections) {
+      void manager.connect(connection.id).catch(() => undefined)
+    }
+  }
 }
 
-async function serveEvents(manager: LocalRemoteManager, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const url = new URL(req.url ?? EVENTS_PATH, 'http://localhost')
-  const connectionId = requiredQuery(url, 'connectionId')
-  const projectId = requiredQuery(url, 'projectId')
-  const sessionId = requiredQuery(url, 'sessionId')
-  const fromSeq = Number(url.searchParams.get('fromSeq') ?? '0')
-  if (!Number.isSafeInteger(fromSeq) || fromSeq < 0) {  json(res, 400, { error: 'invalid fromSeq' }); return }
-  res.writeHead(200, {
-    'content-type': 'text/event-stream',
-    'cache-control': 'no-cache, no-transform',
-    'connection': 'keep-alive',
-  })
-  const send = (event: RemoteSessionEvent): void => { res.write(`data: ${JSON.stringify(event)}\n\n`) }
-  try {
-    const dispose = await manager.subscribe(connectionId, projectId, sessionId, fromSeq, send)
-    const heartbeat = setInterval(() => { res.write(': keepalive\n\n') }, 15_000)
-    req.once('close', () => { clearInterval(heartbeat); dispose() })
-  } catch (error) {
-    res.write(`event: error\ndata: ${JSON.stringify({ error: errorMessage(error) })}\n\n`)
-    res.end()
-  }
+function authorityBasePath(id: string): string { return `${AUTHORITY_PREFIX}/${encodeURIComponent(id)}` }
+
+function authorityIdFromRequest(rawUrl: string | undefined): string | undefined {
+  const pathname = new URL(rawUrl ?? '/', 'http://localhost').pathname
+  const prefix = `${AUTHORITY_PREFIX}/`
+  if (!pathname.startsWith(prefix)) return undefined
+  const encoded = pathname.slice(prefix.length).split('/', 1)[0]
+  if (encoded === undefined || encoded === '') return undefined
+  return decodeURIComponent(encoded)
+}
+
+function upstreamApiPath(connectionId: string, rawUrl: string | undefined): string | undefined {
+  const url = new URL(rawUrl ?? '/', 'http://localhost')
+  const prefix = authorityBasePath(connectionId)
+  if (!url.pathname.startsWith(`${prefix}/api/`)) return undefined
+  return `${url.pathname.slice(prefix.length)}${url.search}`
+}
+
+function upstreamHeaders(headers: IncomingHttpHeaders, port: number): IncomingHttpHeaders {
+  const authority = `127.0.0.1:${String(port)}`
+  return { ...headers, host: authority, origin: `http://${authority}`, 'sec-fetch-site': 'same-origin' }
 }
 
 function validateConnection(connection: RemoteConnectionConfig): void {
   if (!ID.test(connection.id)) throw new Error('connection id must start with a lowercase letter and contain only lowercase letters, digits, or dashes')
   if (!SSH_HOST.test(connection.host)) throw new Error('host must be an OpenSSH hostname or alias without command-line options')
-  if (!SOCKET_PATH.test(connection.socketPath) || connection.socketPath.includes('/../')) throw new Error('socketPath must be a simple absolute remote path')
+  if (!Number.isSafeInteger(connection.remotePort) || connection.remotePort < 1 || connection.remotePort > 65535) {
+    throw new Error('remote port must be between 1 and 65535')
+  }
+}
+
+async function ensureRemoteWebHost(config: RemoteConnectionConfig, timeoutSeconds: number): Promise<void> {
+  const script = `set -eu
+command -v dsh >/dev/null 2>&1 || { echo 'official dsh CLI is not installed on the remote host' >&2; exit 127; }
+port=${String(config.remotePort)}
+probe() { "$(command -v node)" -e "const n=require('node:net');const s=n.connect({host:'127.0.0.1',port:Number(process.argv[1])},()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),500)" "$port"; }
+if probe; then exit 0; fi
+dsh_home="\${DSH_HOME:-$HOME/.dsh}"
+mkdir -p "$dsh_home"
+nohup dsh --profile web --host 127.0.0.1 --port "$port" >> "$dsh_home/remote-web.log" 2>&1 </dev/null &
+echo "$!" > "$dsh_home/remote-web.pid"
+attempt=0
+while test "$attempt" -lt 60; do
+  if probe; then exit 0; fi
+  attempt=$((attempt + 1))
+  sleep 0.25
+done
+tail -n 40 "$dsh_home/remote-web.log" >&2 || true
+exit 1`
+  await runSshScript(config.host, script, timeoutSeconds * 1000 + 20_000)
+}
+
+async function runSshScript(host: string, script: string, timeoutMs: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('ssh', ['-T', '-o', 'BatchMode=yes', host, 'sh', '-s'], { stdio: ['pipe', 'ignore', 'pipe'] })
+    let stderr = ''
+    const timer = setTimeout(() => { child.kill('SIGTERM'); reject(new Error('remote DSH startup timed out')) }, timeoutMs)
+    child.stderr.setEncoding('utf8')
+    child.stderr.on('data', (chunk: string) => { stderr = (stderr + chunk).slice(-8192) })
+    child.once('error', error => { clearTimeout(timer); reject(error) })
+    child.once('exit', (code, signal) => {
+      clearTimeout(timer)
+      if (code === 0) resolve()
+      else reject(new Error(stderr.trim() || `ssh exited (${code === null ? signal : String(code)})`))
+    })
+    child.stdin.end(script)
+  })
+}
+
+async function waitForTcp(port: number, timeoutMs: number): Promise<void> {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    const connected = await new Promise<boolean>((resolve) => {
+      const req = requestHttp({ host: '127.0.0.1', port, method: 'HEAD', path: '/' })
+      req.once('response', response => { response.resume(); resolve(true) })
+      req.once('error', () => { resolve(false) })
+      req.end()
+    })
+    if (connected) return
+    await new Promise(resolve => { setTimeout(resolve, 100) })
+  }
+  throw new Error('SSH forward did not reach the remote DSH Web Host')
 }
 
 async function readAction(req: IncomingMessage): Promise<RemoteAction> {
-  const chunks: Uint8Array[] = []
+  const chunks: Buffer[] = []
   let size = 0
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
@@ -285,56 +330,25 @@ async function readAction(req: IncomingMessage): Promise<RemoteAction> {
     if (size > MAX_BODY_BYTES) throw new Error('request body too large')
     chunks.push(buffer)
   }
-  const value: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  if (typeof value !== 'object' || value === null || typeof (value as { action?: unknown }).action !== 'string') throw new Error('invalid action')
-  return value as RemoteAction
+  return JSON.parse(Buffer.concat(chunks).toString('utf8')) as RemoteAction
 }
 
-function requiredQuery(url: URL, key: string): string {
-  const value = url.searchParams.get(key)
-  if (value === null || value === '') throw new Error(`missing ${key}`)
-  return value
+function rejectUpgrade(socket: Duplex, status: number, message: string): void {
+  if (!socket.destroyed) socket.end(`HTTP/1.1 ${String(status)} Bad Gateway\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n${message}`)
 }
 
-function json(res: ServerResponse, status: number, value: unknown): void {
+function json(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8' })
-  res.end(JSON.stringify(value))
+  res.end(JSON.stringify(body))
 }
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error) }
 
-async function runSshScript(
-  config: RemoteConnectionConfig,
-  script: string,
-  options: Required<Pick<LocalConfig, 'sshConnectTimeoutSeconds' | 'bootstrapTimeoutMs'>>,
-): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const process = spawn('ssh', [
-      '-T', '-o', 'BatchMode=yes', '-o', `ConnectTimeout=${options.sshConnectTimeoutSeconds}`,
-      config.host, 'sh', '-s',
-    ], { stdio: ['pipe', 'ignore', 'pipe'] })
-    let stderr = ''
-    let settled = false
-    let timedOut = false
-    const timeout = setTimeout(() => {
-      timedOut = true
-      process.kill('SIGKILL')
-    }, options.bootstrapTimeoutMs)
-    const finish = (error?: Error): void => {
-      if (settled) return
-      settled = true
-      clearTimeout(timeout)
-      if (error === undefined) resolve()
-      else reject(error)
-    }
-    process.stderr.setEncoding('utf8')
-    process.stderr.on('data', (chunk: string) => { stderr = (stderr + chunk).slice(-8192) })
-    process.once('error', (error) => { finish(error) })
-    process.once('exit', (code, signal) => {
-      if (timedOut) finish(new Error(`remote bootstrap exceeded ${options.bootstrapTimeoutMs}ms`))
-      else if (code === 0) finish()
-      else finish(new Error(stderr.trim() || `remote bootstrap ssh exited (${code === null ? signal : String(code)})`))
-    })
-    process.stdin.end(script)
-  })
+/** Forward one WebSocket message without changing its text/binary opcode. */
+export function relayWebSocketMessage(
+  target: Pick<WebSocket, 'readyState' | 'send'>,
+  data: RawData,
+  isBinary: boolean,
+): void {
+  if (target.readyState === WebSocket.OPEN) target.send(data, { binary: isBinary })
 }

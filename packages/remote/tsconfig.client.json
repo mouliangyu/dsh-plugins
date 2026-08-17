@@ -20,5 +20,5 @@
     "composite": true,
     "tsBuildInfoFile": "lib/tsconfig.client.tsbuildinfo"
   },
-  "files": ["src/local-contract.ts", "src/client/index.ts", "src/client/locales.ts", "src/client/RemoteSettingsSection.tsx", "src/client/css-modules.d.ts"]
+  "files": ["src/local-contract.ts", "src/client/index.ts", "src/client/authority.ts", "src/client/remote-web-api-client.ts", "src/client/locales.ts", "src/client/RemoteSettingsSection.tsx", "src/client/css-modules.d.ts"]
 }

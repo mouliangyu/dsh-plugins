@@ -12,7 +12,7 @@ const CLIENT_EXTERNALS = [
 
 const host: UserConfig = {
   name: PACKAGE_NAME,
-  entry: ['lib/types/index.js', 'lib/types/invariant.js'],
+  entry: { index: 'lib/types/local.js', invariant: 'lib/types/invariant.js' },
   outDir: 'lib',
   format: 'esm',
   platform: 'node',
@@ -20,19 +20,6 @@ const host: UserConfig = {
   outExtensions: () => ({ js: '.js' }),
   clean: false,
   dts: false,
-}
-
-const bin: UserConfig = {
-  name: `${PACKAGE_NAME}/bin`,
-  entry: ['lib/types/bin.js'],
-  outDir: 'lib',
-  format: 'esm',
-  platform: 'node',
-  target: 'node22',
-  outExtensions: () => ({ js: '.js' }),
-  clean: false,
-  dts: false,
-  outputOptions: { codeSplitting: false },
 }
 
 const client: UserConfig = {
@@ -89,4 +76,4 @@ const client: UserConfig = {
   },
 }
 
-export default [host, bin, client]
+export default [host, client]

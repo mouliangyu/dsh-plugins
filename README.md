@@ -9,7 +9,9 @@ shares build conventions, documentation, and compatibility checks.
 | Package | Purpose |
 | --- | --- |
 | `session-control` | Global session and workspace management, with a Web settings switch. |
-| `dsh-remote` | Persistent top-level remote projects and live root sessions over SSH. |
+| `dsh-remote` | Official DSH authorities over SSH with top-level Workspace, Session, and live event integration. |
+| `client-runtime-remote` | Authority-aware replacement for `@deepseek-ai/dsh-client-runtime`. |
+| `ui-workspace-remote` | Unified local and remote replacement for `@deepseek-ai/dsh-client-ui-workspace`. |
 
 The repository is intentionally independent from the upstream
 `deepseek-harness` repository. Upstream currently does not accept external PRs;
@@ -22,6 +24,8 @@ plugin discoverable.
 packages/
   session-control/
   remote/
+  client-runtime-remote/
+  ui-workspace-remote/
   shared/              # future shared helpers; keep runtime-free where possible
 ```
 

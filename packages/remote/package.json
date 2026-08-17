@@ -16,18 +16,11 @@
     "url": "https://github.com/mouliangyu/dsh-plugins/issues"
   },
   "type": "module",
-  "main": "lib/types/local.js",
+  "main": "lib/index.js",
   "types": "lib/types/local.d.ts",
-  "bin": {
-    "dsh-remote-host": "lib/bin.js"
-  },
   "exports": {
     ".": {
       "types": "./lib/types/local.d.ts",
-      "default": "./lib/types/local.js"
-    },
-    "./host": {
-      "types": "./lib/types/index.d.ts",
       "default": "./lib/index.js"
     },
     "./local": {
@@ -42,9 +35,9 @@
       "types": "./lib/types/local-contract.d.ts",
       "default": "./lib/types/local-contract.js"
     },
-    "./bin": {
-      "types": "./lib/types/bin.d.ts",
-      "default": "./lib/bin.js"
+    "./transparent": {
+      "types": "./lib/types/transparent.d.ts",
+      "default": "./lib/types/transparent.js"
     },
     "./invariant": {
       "types": "./lib/types/invariant.d.ts",
@@ -57,7 +50,8 @@
   "files": [
     "lib/index.js",
     "lib/invariant.js",
-    "lib/bin.js",
+    "lib/types/transparent.js",
+    "lib/types/transparent.d.ts",
     "lib/client.js",
     "cordis.patch.yml",
     "DESIGN.md",
@@ -73,6 +67,8 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-workspace",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-primitives"
@@ -87,22 +83,30 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
+    "@deepseek-ai/dsh-client-runtime": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-directory-picker-browse": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-client-ui-workspace": "workspace:*",
+    "@deepseek-ai/dsh-host-directory-picker-browse": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-sdk-protocol": "^0.1.0-rc.6",
-    "ssh-config": "^5.2.1"
+    "ssh-config": "^5.2.1",
+    "ws": "^8.21.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-agent": "*",
     "@deepseek-ai/dsh-app-boot": "*",
     "@deepseek-ai/dsh-client-locale": "*",
+    "@deepseek-ai/dsh-client-connection": "*",
     "@deepseek-ai/dsh-client-runtime": "*",
     "@deepseek-ai/dsh-client-ui-primitives": "*",
     "@deepseek-ai/dsh-client-ui-settings": "*",
     "@deepseek-ai/dsh-host-webserver": "*",
+    "@deepseek-ai/dsh-host-apiproxy": "*",
     "@deepseek-ai/dsh-invariants": "*",
     "@deepseek-ai/dsh-llm": "*",
     "@deepseek-ai/dsh-session": "*",
     "@deepseek-ai/dsh-session-persistence": "*",
+    "@deepseek-ai/dsh-workspace": "*",
     "@deepseek-ai/dsh-settings": "*",
     "react": "*"
   },
@@ -111,10 +115,12 @@
     "@deepseek-ai/dsh-agent": { "optional": true },
     "@deepseek-ai/dsh-app-boot": { "optional": true },
     "@deepseek-ai/dsh-client-locale": { "optional": true },
+    "@deepseek-ai/dsh-client-connection": { "optional": true },
     "@deepseek-ai/dsh-client-runtime": { "optional": true },
     "@deepseek-ai/dsh-client-ui-primitives": { "optional": true },
     "@deepseek-ai/dsh-client-ui-settings": { "optional": true },
     "@deepseek-ai/dsh-host-webserver": { "optional": true },
+    "@deepseek-ai/dsh-host-apiproxy": { "optional": true },
     "@deepseek-ai/dsh-invariants": { "optional": true },
     "@deepseek-ai/dsh-llm": { "optional": true },
     "@deepseek-ai/dsh-session": { "optional": true },
@@ -135,7 +141,6 @@
     "@deepseek-ai/dsh-atomic-write": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-brand": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-locale": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-runtime": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-schema-form": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-client-ui-settings": "^0.1.0-rc.6",
@@ -143,6 +148,7 @@
     "@deepseek-ai/dsh-code-runtime": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-cordis-host-runner": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-host-webserver": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-host-apiproxy": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-host-plugin-inventory": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-invariants": "^0.1.0-rc.6",
@@ -153,11 +159,13 @@
     "@deepseek-ai/dsh-sdk-protocol": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-session": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-session-persistence": "^0.1.0-rc.6",
+    "@deepseek-ai/dsh-workspace": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-settings": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-storage": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-storage-domain": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-system-prompt": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-timeout": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6"
+    "@deepseek-ai/dsh-typert-registry": "^0.1.0-rc.6",
+    "@types/ws": "^8.18.1"
   }
 }

@@ -1,43 +1,55 @@
-# Agent Note: Remote projects use a persistent DSH host
-
-Status: implemented
+# dsh-remote design
 
 English | [中文](DESIGN.zh.md)
 
-## Problem
+## Goal
 
-An SSH command tool cannot provide a remote project as a top-level interactive session. A one-shot process loses live agent state when SSH disconnects, while local filesystem and subprocess proxies would duplicate DSH capabilities and split one execution environment across machines.
+A remote DSH is a top-level authority. Its Workspaces and root Sessions participate in the same browser object model and UI as the local Host. It is not a subagent, a model-facing SSH tool, or a separate management application.
 
-## Decision
+## Components
 
-`dsh-remote` separates local management from remote execution. The package root is the local Web Host plugin, while `/host` is the explicit Remote Host service used by the remote daemon. The `/local` export is retained as an alias; it discovers explicit aliases from the user OpenSSH config and recursive `Include` files, stores selected SSH connection records, runs SSH stdio bridges, and exposes project and root-session management plus SSE. Wildcard host rules remain OpenSSH-only. The Remote Host service runs inside a persistent remote DSH daemon and owns configured project roots, root sessions, agent handles, and persistence-backed replay.
+`ctx.authorityRegistry` stores provider registrations and connected official `IApiClient` instances. Core understands only provider ids and lifecycle states. The SSH provider owns startup, forwarding, reconnect policy, and health details.
 
-The daemon listens on a user-private Unix socket. `dsh-remote-host connect` copies stdio to that socket, so the SSH process is a replaceable transport rather than the session owner. `systemd --user` or `launchd` keeps the daemon alive when available; a detached process provides SSH-disconnect survival without reboot supervision when neither service manager is usable.
+`ctx.connection.routeApi()` publishes one authority-aware API client to every browser plugin. The local connection controller retains the original local client for its own stream generation. This prevents model selection, commands, settings, and interaction plugins from bypassing authority routing.
 
-Install or update remote Host is the explicit connection-level installation boundary. The local Host packs its installed plugin version, transfers the tarball through SSH, installs the exact official `@deepseek-ai/dsh` release configured by `remoteDshPackage` and a dedicated profile under the remote user's home, renders the effective `cordis.yml`, and restarts the daemon. The plugin resolves its DSH imports from that official runtime closure. Plugin and DSH versions remain independent; the DSH package specifier must name one exact official release so installation cannot drift with a registry tag or range. This requires non-interactive SSH authentication and an existing Node.js/npm installation, but no manual remote login or privileged install. Ordinary connection attempts never install software.
+`AuthorityApiRouter` aggregates local and connected remote `session.list`, `session.search`, and `workspace.list` results. Requests containing a Session or Workspace id are sent to that id's authority. The browser uses `@authority/<authority>/<remote-id>` ids to avoid collisions; request and response envelopes on each remote connection keep the original ids.
 
-The running daemon owns a versioned JSON project registry outside its installed profile. `remote/projects/create` serializes project mutations, creates the selected directory, and atomically replaces the owner-only registry file. Host installation and upgrades leave this file untouched. A project action therefore changes project state without uploading packages, changing composition, or restarting the daemon.
+`RemoteAuthorityStreams` opens the official `events.mux` and `events.host` downlinks for every connected authority. It namespaces frame ids and sends the frames to the shared Session and Workspace managers. Approvals and questions retain their `rpcId` to route browser responses back to the originating authority.
 
-Remote persistence is authoritative for project sessions and events. Local settings store connection id, SSH host, and socket path only; they do not store a last session id, transcript, or replay watermark. A browser subscription supplies `fromSeq`, and the daemon registers a live listener before reading the durable suffix so concurrent events arrive after the persisted prefix.
+The copied Workspace UI renders the aggregated managers directly. Remote Workspace rows add an authority label; Session rows and conversation content use the same components as local sessions. Directory operations select an authority before calling the shared Workspace runtime.
+
+## SSH transport
+
+The local Host starts the remote official Web profile on remote loopback only when the configured port is not listening:
+
+```sh
+nohup dsh --profile web --host 127.0.0.1 --port "$port" ... &
+```
+
+An OpenSSH `-L` forward exposes that port on a random local loopback port. The plugin's same-origin HTTP prefix pipes official request and response bodies unchanged. Its WebSocket bridge preserves official text and binary opcodes; official event envelopes remain text frames. Host, Origin, and Fetch-Metadata headers are rewritten to satisfy the remote Web Host's loopback trust fence.
+
+SSH disconnect does not terminate the remote DSH process. Reconnecting may reuse the listening process and rebuild only the forward and browser clients. Remote persistence remains authoritative; no transcript, last session id, replay watermark, or project registry is stored locally.
+
+## Workspace creation
+
+The bundle disables the adaptive local directory picker and composes the official browse backend and browser surface. This gives one interaction that can list either the local Host or the selected remote authority. `workspace.create` is then routed to the same authority, whose official Workspace registry persists the record.
+
+## Failure behavior
+
+Unknown authorities and duplicate provider or API-router registrations fail explicitly. Aggregate list operations keep successful authorities visible when another authority is unavailable and fail only when every call fails. Provider state changes remove dead remote clients from routing; the provider decides when to reconnect or report degraded health.
+
+## Security
+
+Connections use explicit OpenSSH aliases and `BatchMode=yes`. The plugin stores no password or private key. Remote DSH listens on loopback, and the local Web application reaches it only through SSH and the local same-origin proxy. The plugin does not add a remote authentication protocol or public listener.
 
 ## Alternatives considered
 
-- **Model-facing SSH command tool**: rejected because separate commands do not form a durable interactive project session.
-- **Subagent provider**: rejected because remote work is a root session with its own transcript, not a child result in a local session.
-- **Local capability proxies**: rejected because filesystem, PTY, LSP, approval, and process policy belong to the remote DSH execution environment.
-- **One-shot stdio host**: rejected because its lifetime would still be owned by the SSH connection.
-- **Public WebSocket port on the remote host**: rejected because SSH and a private Unix socket provide transport and access control without another listening port.
-- **Registry-only remote installation**: rejected because local development builds may not be published and the two transport endpoints must run the same plugin version.
-- **Installing or restarting the Host for each project**: rejected because Host lifecycle belongs to the SSH connection, while projects are durable records managed by the running Host.
-
-## Consequences
-
-The local browser communicates with its local DSH Host over plugin-owned HTTP and SSE endpoints; the local Host communicates with the remote daemon over SSH stdio and newline-delimited JSON-RPC. Remote root-session identity stays outside the local session persistence domain, preventing local transcript copies and identifier collisions. Multiple saved connections and session subscribers remain independent; selected UI rows do not constrain execution.
-
-The ordinary conversation renderer assumes every session belongs to the local API Host. The management UI therefore renders remote durable events directly. Sharing the ordinary renderer requires a pluggable client session backend rather than inserting remote events into local persistence. A daemon restart preserves durable recovery but cannot preserve an interrupted live process. Approval/question responders and direct PTY attachment require additional bidirectional protocol methods.
-
-SSH config discovery reads aliases only and never contacts the listed machines. Host verification, final option resolution, and authentication remain OpenSSH responsibilities. The bootstrap action uses `BatchMode=yes`; password prompts and first-use host confirmation fail visibly instead of blocking the local Host. The detached fallback survives an ordinary SSH disconnect but does not replace the reboot, accounting, and cleanup guarantees of an operating-system service manager.
+- **Subagent provider**: rejected because the remote session is a top-level root session with its own Workspace and transcript.
+- **Custom remote daemon and JSON-RPC**: rejected because official DSH already provides Workspace persistence, root-session recovery, HTTP RPC, and live event downlinks.
+- **Capability-by-capability proxying**: rejected because it duplicates filesystem, process, terminal, LSP, interaction, and persistence behavior.
+- **Separate remote UI and registry**: rejected because it forks ordinary Workspace and Session behavior and prevents existing client plugins from operating on remote sessions.
+- **Local-only runtime routing**: rejected because plugins that read `connection.api` directly would still call the wrong Host.
 
 ## Verification
 
-Package tests cover concurrent event subscribers, durable replay ordering, recursive SSH-config discovery, opaque bootstrap value transfer, supervisor branches, packing the actual installed plugin artifact, project-registry writes, duplicate rejection, and registry recovery. The browser workflow covers discovered-host selection, connection-level Host installation, project creation, project selection, and root-session creation.
+Unit tests cover authority lifecycle, API-router registration, id namespacing, and WebSocket opcode preservation. Browser verification covers SSH connection, aggregated Workspaces, remote directory browsing, remote session creation and recovery, remote model loading, live user and assistant frames, running state, cancellation control, and completed conversation rendering.

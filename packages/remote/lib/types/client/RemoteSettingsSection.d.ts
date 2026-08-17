@@ -1,10 +1,12 @@
-/** Remote connection, project, and root-session management page. */
+/** Remote authority connection settings. */
 import { type ReactNode } from 'react';
+import type { RemoteAuthorityCoordinator } from './authority.ts';
 import type { RemoteLocaleKey } from './locales.ts';
 interface Props {
+    coordinator: RemoteAuthorityCoordinator;
     t?: (key: RemoteLocaleKey) => string;
 }
-/** Render the complete remote-management page. */
-export declare function RemoteSettingsSection({ t }: Props): ReactNode;
+/** Render SSH authority discovery and lifecycle controls. */
+export declare function RemoteSettingsSection({ coordinator, t }: Props): ReactNode;
 export {};
 //# sourceMappingURL=RemoteSettingsSection.d.ts.map

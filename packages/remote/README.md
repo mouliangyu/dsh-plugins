@@ -2,59 +2,55 @@
 
 English | [中文](README.zh.md)
 
-`dsh-remote` is a bundle with two runtime roles. The local Web Host plugin stores SSH connection records, opens SSH stdio bridges, and serves the Remote settings page. The remote Host service owns project roots, durable root sessions, live agent handles, and persistence-backed replay.
+`dsh-remote` connects the Web application to official DSH instances over SSH. A remote authority appears in the ordinary Workspace tree, and its root sessions use the ordinary conversation renderer, model selector, approval and question responders, cancellation, and live event stream.
 
-## Local installation
+## Install
 
 ```sh
-dsh plugin --profile web add link:/absolute/path/to/dsh-plugins/packages/remote
-dsh web
+dsh plugin --profile web add dsh-remote
+dsh plugin --profile web install
+dsh --profile web
 ```
 
-After the package is published, the registry spec `dsh-remote` replaces the local link.
+For local development, replace `dsh-remote` with `link:/absolute/path/to/dsh-plugins/packages/remote`.
 
-Open Settings, then Remote. The add-connection form discovers explicit `Host` aliases from `~/.ssh/config` and its `Include` files; wildcard rules remain OpenSSH-only and are not offered as selectable hosts. Each connection stores only an id, the selected alias, and the remote Unix-socket path. Authentication remains in OpenSSH config, `ssh-agent`, or another SSH credential provider; DSH settings never store a password or private key. Project, session, transcript, and sequence state remain authoritative on the remote host.
+The plugin also replaces `@deepseek-ai/dsh-client-runtime` and `@deepseek-ai/dsh-client-ui-workspace` with the companion packages in this repository. It requires a DSH build that provides `ctx.authorityRegistry` and `ctx.connection.routeApi()`.
 
-Use Install or update remote Host on a saved connection. The local Host packs the running `dsh-remote` plugin, transfers it over SSH, installs the exact official DSH release selected by `remoteDshPackage` and a dedicated profile under the remote user's home, and starts or restarts the daemon. The plugin declares only the runtime packages absent from the official DSH installation, while its DSH service imports resolve from the official runtime closure. The plugin and DSH versions are independent; `remoteDshPackage` defaults to the published `@deepseek-ai/dsh@0.1.0-rc.6` release and rejects tags or ranges so repeated installations do not drift. The connection-level action requires non-interactive SSH authentication plus Node.js and npm on the remote host; it requires neither a manual SSH login nor root access. `sshConnectTimeoutSeconds` and `bootstrapTimeoutMs` configure connection and installation deadlines.
+## Connect
 
-After the connection succeeds, New project calls the running daemon. The daemon creates the directory, writes the project to its remote JSON registry, and immediately advertises it to every client. Adding a project does not install packages, rewrite the profile, or restart the daemon.
+Open Settings, select Remote, and add a connection. The form discovers explicit aliases from `~/.ssh/config` and recursive `Include` files; it does not probe those hosts. Choose an alias, assign a stable authority id, and set the remote DSH Web port. Authentication and final option resolution remain OpenSSH responsibilities, including `ProxyJump`, `IdentityFile`, and `ssh-agent`.
 
-The local Host exposes `/dsh-remote/api` for management commands and `/dsh-remote/events` for SSE. One SSH process can carry project and session requests plus multiple concurrent event subscribers. Closing the browser or SSH bridge does not cancel remote work.
+The remote host must already provide the official `dsh` command. Connecting starts `dsh --profile web` on remote loopback when the configured port is not already listening, detaches it with `nohup`, and opens an SSH local forward. No remote plugin, daemon, Unix socket, project registry, or manual profile edit is installed.
 
-## Manual remote host configuration
+Local settings store only the authority id, SSH host alias, and remote port. The remote DSH owns its Workspace registry, session logs, titles, model selection, permissions, and recovery.
+
+## Use
+
+Connected remote Workspaces are merged into the normal Workspace tree and carry the authority label. The Add Workspace menu offers the local Host and every ready remote authority. The plugin composes the official browse directory picker so local and remote directories use the same in-page browser.
+
+All unary RPCs use the official DSH HTTP envelopes. `events.mux` and `events.host` use the official WebSocket text frames. The local proxy changes only the URL and browser trust headers required to reach the SSH-forwarded loopback Host. Session and Workspace ids are namespaced only inside the shared browser object model and are restored to their original values on the wire.
+
+The provider owns SSH lifecycle, reconnection, and health state. Disconnecting closes the local forward; the detached remote DSH process and its durable sessions remain available for a later connection.
+
+## Configuration
 
 ```yaml
-- id: remote-host
-  name: 'dsh-remote/host'
+- id: dsh-remote-local
+  name: dsh-remote
   config:
-    socketPath: /run/user/1000/dsh-remote.sock
-    projectsFile: /home/user/.dsh/remote-projects.json
+    sshConnectTimeoutSeconds: 10
+    autoConnect: true
 ```
 
-The page-managed installation generates this entry over the base profile and supplies session persistence, agent loop, model route, filesystem, terminal, LSP, approval, and question providers. `projectsFile` is authoritative after it exists; an optional `projects` array seeds it on first boot. The installer uses `systemd --user` when a persistent user manager is available, `launchd` on macOS, and otherwise a detached process with a PID file. A manual deployment can run `dsh-remote-host /path/to/cordis.yml` under another user service. The socket and project registry have owner-only permissions; no remote TCP port is required.
+Connection records are edited through Settings and stored in the `dsh-remote` settings namespace.
 
-## Protocol
+## Limitations
 
-The daemon accepts `remote/hello`, `remote/projects/create`, `remote/sessions/list`, `remote/sessions/create`, `remote/sessions/resume`, `remote/sessions/prompt`, `remote/sessions/cancel`, and `remote/events/subscribe`. Project creation is serialized and atomically replaces the versioned registry file. A subscription registers its live listener before reading `SessionPersistence.readFrom(sessionId, fromSeq)`, then emits the durable suffix and buffered live events in sequence order.
+- The bundle uses the official browse directory picker for both local and remote Workspace creation; installing it replaces the platform-native local chooser.
+- Remote access inherits OpenSSH host-key and authentication behavior. `BatchMode=yes` makes password prompts and unresolved first-use confirmation fail visibly.
+- The remote Web Host listens only on remote loopback. A separate remote port is configured, but it is not exposed outside the SSH connection.
+- Multiple top-level API routers cannot coexist; authority routing must be composed in the single `connection.routeApi()` registration.
 
 ## Model Experience
 
-### Remote root session
-
-#### What the model sees
-
-The remote model receives each `remote/sessions/prompt` input as a durable `user/message` in a root session and uses the remote project's configured prompt, tools, filesystem, shell, terminal, LSP, and interaction providers.
-
-#### Token effect
-
-Prompt content enters the remote session history and remains until the configured compaction provider removes it.
-
-#### KV Cache effect
-
-None beyond normal session-history behavior.
-
-## Known Limitations and Deferred Work
-
-- The Remote settings page renders durable events directly; sharing the ordinary conversation renderer requires a pluggable client session backend.
-- Approval/question responder requests and direct PTY attachment require additional bidirectional protocol methods.
-- The detached-process fallback survives an ordinary SSH disconnect but cannot provide the reboot and process-accounting guarantees of `systemd --user` or `launchd`.
+Remote prompts are ordinary root-session prompts on the remote DSH. Model-visible content, tools, token usage, compaction, and KV cache behavior are identical to using that remote DSH Web application directly.

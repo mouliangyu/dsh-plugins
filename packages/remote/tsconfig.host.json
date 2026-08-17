@@ -19,5 +19,5 @@
     "composite": true,
     "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
   },
-  "files": ["src/index.ts", "src/bin.ts", "src/runner.ts", "src/invariant.ts", "src/local.ts", "src/local-contract.ts", "src/ssh-config.ts", "src/bootstrap.ts"]
+  "files": ["src/invariant.ts", "src/local.ts", "src/local-contract.ts", "src/ssh-config.ts", "src/transparent.ts"]
 }
