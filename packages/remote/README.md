@@ -14,7 +14,7 @@ dsh --profile web
 
 For local development, replace `dsh-remote` with `link:/absolute/path/to/dsh-plugins/packages/remote`.
 
-The plugin also replaces `@deepseek-ai/dsh-client-runtime` and `@deepseek-ai/dsh-client-ui-workspace` with the companion packages in this repository. It requires a DSH build that provides `ctx.authorityRegistry` and `ctx.connection.routeApi()`.
+The plugin requires a DSH build whose core client runtime and Workspace UI provide `ctx.authorityRegistry`, `ctx.connection.routeApi()`, multi-authority API routing, and authority-aware Workspace picking. Core owns those generic behaviors; this package only supplies the SSH provider.
 
 ## Connect
 

@@ -14,7 +14,7 @@ dsh --profile web
 
 本地开发时，把 `dsh-remote` 替换为 `link:/absolute/path/to/dsh-plugins/packages/remote`。
 
-该插件还会用本仓库的配套包替换 `@deepseek-ai/dsh-client-runtime` 和 `@deepseek-ai/dsh-client-ui-workspace`。它要求 DSH 提供 `ctx.authorityRegistry` 与 `ctx.connection.routeApi()`。
+该插件要求 DSH 的 core client runtime 与 Workspace UI 提供 `ctx.authorityRegistry`、`ctx.connection.routeApi()`、多 authority API 路由和 authority-aware Workspace 选择。通用行为由 core 承担；本包只提供 SSH provider。
 
 ## 连接
 

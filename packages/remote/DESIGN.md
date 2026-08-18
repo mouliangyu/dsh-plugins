@@ -16,7 +16,7 @@ A remote DSH is a top-level authority. Its Workspaces and root Sessions particip
 
 `RemoteAuthorityStreams` opens the official `events.mux` and `events.host` downlinks for every connected authority. It namespaces frame ids and sends the frames to the shared Session and Workspace managers. Approvals and questions retain their `rpcId` to route browser responses back to the originating authority.
 
-The copied Workspace UI renders the aggregated managers directly. Remote Workspace rows add an authority label; Session rows and conversation content use the same components as local sessions. Directory operations select an authority before calling the shared Workspace runtime.
+The core runtime and Workspace UI render the aggregated managers directly. `dsh-remote` contributes the provider and settings UI; remote Workspace rows add an authority label, and directory operations select an authority before calling the shared Workspace runtime.
 
 ## SSH transport
 

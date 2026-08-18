@@ -1,6 +1,8 @@
 /** Browser coordinator for SSH-backed official DSH authorities. */
 
-import type { AuthorityConnectionLike, AuthorityProviderLike, AuthorityRegistryLike, AuthorityState } from '@deepseek-ai/dsh-client-runtime/client'
+import type {
+  AuthorityConnection, AuthorityProvider, AuthorityRegistry, AuthorityState,
+} from '@deepseek-ai/dsh-client-connection/client'
 import { RemoteWebApiClient } from './remote-web-api-client.ts'
 import type { RemoteAction, RemoteConnectionConfig, RemoteStateView, SshHostView } from '../local-contract.ts'
 
@@ -15,8 +17,8 @@ async function request<T>(action?: RemoteAction): Promise<T> {
   return (action === undefined ? payload : payload.value) as T
 }
 
-class RemoteAuthorityConnection implements AuthorityConnectionLike {
-  readonly api: AuthorityConnectionLike['api']
+class RemoteAuthorityConnection implements AuthorityConnection {
+  readonly api: AuthorityConnection['api']
   state: AuthorityState = 'ready'
   private readonly listeners = new Set<(state: AuthorityState) => void>()
 
@@ -49,7 +51,7 @@ export class RemoteAuthorityCoordinator {
   private readonly liveConnections = new Map<string, RemoteAuthorityConnection>()
   private disposed = false
 
-  constructor(private readonly registry: AuthorityRegistryLike) {}
+  constructor(private readonly registry: AuthorityRegistry) {}
 
   getSnapshot = (): RemoteStateView => this.snapshot
   subscribe = (listener: () => void): (() => void) => {
@@ -96,7 +98,7 @@ export class RemoteAuthorityCoordinator {
     }
     for (const connection of state.connections) {
       if (!this.providerDisposers.has(connection.id)) {
-        const provider: AuthorityProviderLike = {
+        const provider: AuthorityProvider = {
           id: connection.id,
           kind: 'ssh',
           connect: async () => {

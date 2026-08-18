@@ -16,7 +16,7 @@
 
 `RemoteAuthorityStreams` 为每个已连接 authority 打开官方 `events.mux` 与 `events.host` 下行。它为 frame id 增加 namespace，再把 frame 交给共享 Session 与 Workspace manager。审批和提问保留自己的 `rpcId`，使浏览器响应返回原始 authority。
 
-复制扩展的 Workspace UI 直接渲染聚合后的 manager。远端 Workspace 行增加 authority 标签；Session 行与 conversation 内容复用本地组件。目录操作在调用共享 Workspace runtime 前选择 authority。
+Core runtime 与 Workspace UI 直接渲染聚合后的 manager。`dsh-remote` 只贡献 provider 与设置 UI；远端 Workspace 行增加 authority 标签，目录操作在调用共享 Workspace runtime 前选择 authority。
 
 ## SSH transport
 

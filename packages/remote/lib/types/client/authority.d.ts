@@ -1,5 +1,5 @@
 /** Browser coordinator for SSH-backed official DSH authorities. */
-import type { AuthorityRegistryLike } from '@deepseek-ai/dsh-client-runtime/client';
+import type { AuthorityRegistry } from '@deepseek-ai/dsh-client-connection/client';
 import type { RemoteConnectionConfig, RemoteStateView, SshHostView } from '../local-contract.ts';
 /** Remote connection settings and core authority registrations. */
 export declare class RemoteAuthorityCoordinator {
@@ -9,7 +9,7 @@ export declare class RemoteAuthorityCoordinator {
     private readonly providerDisposers;
     private readonly liveConnections;
     private disposed;
-    constructor(registry: AuthorityRegistryLike);
+    constructor(registry: AuthorityRegistry);
     getSnapshot: () => RemoteStateView;
     subscribe: (listener: () => void) => (() => void);
     start(): Promise<void>;

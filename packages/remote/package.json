@@ -83,9 +83,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
-    "@deepseek-ai/dsh-client-runtime": "workspace:*",
     "@deepseek-ai/dsh-client-ui-directory-picker-browse": "^0.1.0-rc.6",
-    "@deepseek-ai/dsh-client-ui-workspace": "workspace:*",
     "@deepseek-ai/dsh-host-directory-picker-browse": "^0.1.0-rc.6",
     "@deepseek-ai/dsh-sdk-protocol": "^0.1.0-rc.6",
     "ssh-config": "^5.2.1",
