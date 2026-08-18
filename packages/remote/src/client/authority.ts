@@ -87,6 +87,7 @@ export class RemoteAuthorityCoordinator {
     } else {
       await request<RemoteStateView>({ action: 'disconnect', connectionId })
     }
+    await request<RemoteStateView>({ action: 'restart', connectionId })
     await this.registry.connect(connectionId)
     await this.refresh()
   }

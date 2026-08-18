@@ -32,6 +32,8 @@ All unary RPCs use the official DSH HTTP envelopes. `events.mux` and `events.hos
 
 The provider owns SSH lifecycle, reconnection, and health state. Disconnecting closes the local forward; the detached remote DSH process and its durable sessions remain available for a later connection.
 
+The Reconnect action additionally restarts the remote Web process recorded by `~/.dsh/remote-web.pid`, then recreates the SSH forward. It only stops a PID whose command line is a DSH Web process; an occupied port or an unsafe PID file fails explicitly.
+
 ## Configuration
 
 ```yaml

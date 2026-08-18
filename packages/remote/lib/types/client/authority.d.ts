@@ -19,6 +19,8 @@ export declare class RemoteAuthorityCoordinator {
     remove(connectionId: string): Promise<void>;
     connect(connectionId: string): Promise<void>;
     disconnect(connectionId: string): Promise<void>;
+    /** Fully tear down and recreate one SSH-backed authority connection. */
+    reconnect(connectionId: string): Promise<void>;
     dispose(): Promise<void>;
     private reconcile;
 }

@@ -38,6 +38,9 @@ export type RemoteAction = {
     action: 'connect';
     connectionId: string;
 } | {
+    action: 'restart';
+    connectionId: string;
+} | {
     action: 'disconnect';
     connectionId: string;
 };

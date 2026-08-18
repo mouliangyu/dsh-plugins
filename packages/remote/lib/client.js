@@ -18,20 +18,20 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RemoteSettingsSection_module_css_default = {
-			"rowMain": "ghiA-a_rowMain",
-			"form": "ghiA-a_form",
-			"hostEmpty": "ghiA-a_hostEmpty",
-			"row": "ghiA-a_row",
-			"spinning": "ghiA-a_spinning",
-			"root": "ghiA-a_root",
 			"formActions": "ghiA-a_formActions",
-			"iconButton": "ghiA-a_iconButton",
-			"connectionList": "ghiA-a_connectionList",
-			"error": "ghiA-a_error",
-			"empty": "ghiA-a_empty",
-			"header": "ghiA-a_header",
 			"remote-spin": "ghiA-a_remote-spin",
-			"listButton": "ghiA-a_listButton"
+			"iconButton": "ghiA-a_iconButton",
+			"form": "ghiA-a_form",
+			"listButton": "ghiA-a_listButton",
+			"empty": "ghiA-a_empty",
+			"root": "ghiA-a_root",
+			"connectionList": "ghiA-a_connectionList",
+			"row": "ghiA-a_row",
+			"rowMain": "ghiA-a_rowMain",
+			"spinning": "ghiA-a_spinning",
+			"hostEmpty": "ghiA-a_hostEmpty",
+			"error": "ghiA-a_error",
+			"header": "ghiA-a_header"
 		};
 		//#endregion
 		//#region src/client/RemoteSettingsSection.tsx
@@ -6266,6 +6266,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				if (this.registry.get(connectionId) !== void 0) await this.registry.disconnect(connectionId);
 				else await request({
 					action: "disconnect",
+					connectionId
+				});
+				await request({
+					action: "restart",
 					connectionId
 				});
 				await this.registry.connect(connectionId);

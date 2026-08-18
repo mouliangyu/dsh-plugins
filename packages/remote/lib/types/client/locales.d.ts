@@ -11,6 +11,7 @@ export declare const en: {
     readonly connect: "Connect";
     readonly disconnect: "Disconnect";
     readonly refresh: "Refresh connection";
+    readonly reconnect: "Reconnect";
     readonly remove: "Delete";
     readonly connected: "Connected";
     readonly disconnected: "Disconnected";

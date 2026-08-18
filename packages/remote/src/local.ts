@@ -92,6 +92,9 @@ class RemoteAuthorityManager {
       case 'connect':
         await this.connect(action.connectionId)
         return this.state()
+      case 'restart':
+        await this.restart(action.connectionId)
+        return this.state()
       case 'disconnect':
         await this.disconnect(action.connectionId)
         return this.state()
@@ -128,6 +131,20 @@ class RemoteAuthorityManager {
     if (forward === undefined) return
     this.forwards.delete(connectionId)
     await forward.close()
+  }
+
+  /** Restart the DSH Web process owned by this plugin before reconnecting. */
+  async restart(connectionId: string): Promise<void> {
+    await this.disconnect(connectionId)
+    const config = this.connectionConfig(connectionId)
+    try {
+      await ensureRemoteWebHost(config, this.connectTimeoutSeconds, true)
+      this.errors.delete(connectionId)
+    } catch (error) {
+      const message = errorMessage(error)
+      this.errors.set(connectionId, message)
+      throw new Error(message)
+    }
   }
 
   proxyHttp(connectionId: string, req: IncomingMessage, res: ServerResponse): void {
@@ -268,11 +285,28 @@ function validateConnection(connection: RemoteConnectionConfig): void {
   }
 }
 
-async function ensureRemoteWebHost(config: RemoteConnectionConfig, timeoutSeconds: number): Promise<void> {
+async function ensureRemoteWebHost(config: RemoteConnectionConfig, timeoutSeconds: number, restart = false): Promise<void> {
   const script = `set -eu
 command -v dsh >/dev/null 2>&1 || { echo 'official dsh CLI is not installed on the remote host' >&2; exit 127; }
 port=${String(config.remotePort)}
 probe() { "$(command -v node)" -e "const n=require('node:net');const s=n.connect({host:'127.0.0.1',port:Number(process.argv[1])},()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));setTimeout(()=>process.exit(1),500)" "$port"; }
+${restart ? `
+dsh_home="\${DSH_HOME:-$HOME/.dsh}"
+pid_file="$dsh_home/remote-web.pid"
+if test -f "$pid_file"; then
+  pid="$(cat "$pid_file")"
+  case "$pid" in (*[!0-9]*|'') echo 'remote DSH PID file is invalid' >&2; exit 1;; esac
+  if kill -0 "$pid" 2>/dev/null; then
+    command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    case "$command" in (*dsh*--profile*web*) kill "$pid";; (*) echo 'remote DSH PID file does not identify a DSH Web process' >&2; exit 1;; esac
+    attempt=0
+    while kill -0 "$pid" 2>/dev/null && test "$attempt" -lt 40; do attempt=$((attempt + 1)); sleep 0.25; done
+    if kill -0 "$pid" 2>/dev/null; then echo 'remote DSH Web process did not stop' >&2; exit 1; fi
+  fi
+  rm -f "$pid_file"
+fi
+if probe; then echo 'remote DSH port is still occupied after stopping the owned process' >&2; exit 1; fi
+` : ''}
 if probe; then exit 0; fi
 dsh_home="\${DSH_HOME:-$HOME/.dsh}"
 mkdir -p "$dsh_home"

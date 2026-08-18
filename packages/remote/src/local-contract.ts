@@ -32,4 +32,5 @@ export type RemoteAction =
   | { action: 'saveConnection'; connection: RemoteConnectionConfig }
   | { action: 'removeConnection'; connectionId: string }
   | { action: 'connect'; connectionId: string }
+  | { action: 'restart'; connectionId: string }
   | { action: 'disconnect'; connectionId: string }

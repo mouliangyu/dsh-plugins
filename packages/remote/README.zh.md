@@ -30,7 +30,7 @@ dsh --profile web
 
 所有 unary RPC 使用官方 DSH HTTP envelope，`events.mux` 与 `events.host` 使用官方 WebSocket 文本 frame。本地 proxy 只改变 URL 和访问 SSH 转发后 loopback Host 所需的浏览器信任 header。Session 与 Workspace id 只在共享浏览器对象模型中增加 namespace，在线路上会恢复原始值。
 
-Provider 自行管理 SSH 生命周期、重连与健康状态。断开连接只关闭本地 forward；脱离 SSH 的远端 DSH process 与持久会话仍可在下次连接时恢复。
+Provider 自行管理 SSH 生命周期、重连与健康状态。断开连接只关闭本地 forward；脱离 SSH 的远端 DSH process 与持久会话仍可在下次连接时恢复。点击“重新连接”时，会额外重启插件记录在 `~/.dsh/remote-web.pid` 中的远端 Web process，再重新建立 SSH forward；只有命令行确认为 DSH Web process 的 PID 才会被终止，PID 文件不安全或端口被其他进程占用时会明确失败。
 
 ## 配置
 

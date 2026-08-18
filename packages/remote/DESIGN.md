@@ -28,7 +28,7 @@ nohup dsh --profile web --host 127.0.0.1 --port "$port" ... &
 
 An OpenSSH `-L` forward exposes that port on a random local loopback port. The plugin's same-origin HTTP prefix pipes official request and response bodies unchanged. Its WebSocket bridge preserves official text and binary opcodes; official event envelopes remain text frames. Host, Origin, and Fetch-Metadata headers are rewritten to satisfy the remote Web Host's loopback trust fence.
 
-SSH disconnect does not terminate the remote DSH process. Reconnecting may reuse the listening process and rebuild only the forward and browser clients. Remote persistence remains authoritative; no transcript, last session id, replay watermark, or project registry is stored locally.
+SSH disconnect does not terminate the remote DSH process. Reconnect explicitly restarts the DSH Web process recorded by the provider and rebuilds the forward and browser clients. Remote persistence remains authoritative; no transcript, last session id, replay watermark, or project registry is stored locally.
 
 ## Workspace creation
 

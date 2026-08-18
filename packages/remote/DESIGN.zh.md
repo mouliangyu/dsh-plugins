@@ -28,7 +28,7 @@ nohup dsh --profile web --host 127.0.0.1 --port "$port" ... &
 
 OpenSSH `-L` forward 把该端口暴露到随机本地 loopback 端口。插件的同源 HTTP prefix 原样 pipe 官方请求与响应 body。WebSocket bridge 保留官方文本与二进制 opcode；官方事件 envelope 继续使用文本 frame。Host、Origin 与 Fetch-Metadata header 会重写，以满足远端 Web Host 的 loopback 信任检查。
 
-SSH 断开不会终止远端 DSH process。重连可以复用仍在监听的 process，只重建 forward 与浏览器 client。远端 persistence 始终权威；本地不保存 transcript、last session id、replay watermark 或项目 registry。
+SSH 断开不会终止远端 DSH process。点击重新连接时，provider 会重启它记录的 DSH Web process，再重建 forward 与浏览器 client。远端 persistence 始终权威；本地不保存 transcript、last session id、replay watermark 或项目 registry。
 
 ## Workspace 创建
 
