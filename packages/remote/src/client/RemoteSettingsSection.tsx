@@ -35,7 +35,7 @@ export function RemoteSettingsSection({ coordinator, t = key => key }: Props): R
       {state.connections.length === 0 ? <p className={css.empty}>{t('noConnections')}</p> : null}
       {state.connections.map(connection => <div className={css.row} key={connection.id}>
         <span className={css.rowMain}><strong>{connection.id}</strong><span>{connection.host}:{connection.remotePort}</span><small>{connection.connected ? t('connected') : connection.error ?? t('disconnected')}</small></span>
-        <button aria-label={connection.connected ? t('refresh') : t('connect')} className={css.iconButton} disabled={busyId !== undefined} title={connection.connected ? t('refresh') : t('connect')} onClick={() => { void run(connection.id, async () => { if (connection.connected) await coordinator.refresh(); else await coordinator.connect(connection.id) }) }}>
+        <button aria-label={connection.connected ? t('reconnect') : t('connect')} className={css.iconButton} disabled={busyId !== undefined} title={connection.connected ? t('reconnect') : t('connect')} onClick={() => { void run(connection.id, async () => { if (connection.connected) await coordinator.reconnect(connection.id); else await coordinator.connect(connection.id) }) }}>
           {busyId === connection.id ? <span className={css.spinning}><IconLoadingOutline16 /></span> : <IconRefreshOutline16 />}
         </button>
         <button className={css.iconButton} title={t('edit')} onClick={() => { setEditing(connection) }}><IconEditOutline16 /></button>

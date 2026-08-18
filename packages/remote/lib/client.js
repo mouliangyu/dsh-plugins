@@ -18,20 +18,20 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RemoteSettingsSection_module_css_default = {
-			"spinning": "ghiA-a_spinning",
-			"form": "ghiA-a_form",
-			"row": "ghiA-a_row",
-			"formActions": "ghiA-a_formActions",
-			"listButton": "ghiA-a_listButton",
-			"remote-spin": "ghiA-a_remote-spin",
-			"root": "ghiA-a_root",
-			"hostEmpty": "ghiA-a_hostEmpty",
-			"connectionList": "ghiA-a_connectionList",
 			"rowMain": "ghiA-a_rowMain",
-			"header": "ghiA-a_header",
+			"form": "ghiA-a_form",
+			"hostEmpty": "ghiA-a_hostEmpty",
+			"row": "ghiA-a_row",
+			"spinning": "ghiA-a_spinning",
+			"root": "ghiA-a_root",
+			"formActions": "ghiA-a_formActions",
 			"iconButton": "ghiA-a_iconButton",
+			"connectionList": "ghiA-a_connectionList",
 			"error": "ghiA-a_error",
-			"empty": "ghiA-a_empty"
+			"empty": "ghiA-a_empty",
+			"header": "ghiA-a_header",
+			"remote-spin": "ghiA-a_remote-spin",
+			"listButton": "ghiA-a_listButton"
 		};
 		//#endregion
 		//#region src/client/RemoteSettingsSection.tsx
@@ -119,13 +119,13 @@ window.__ModuleLoader__.load({
 									]
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
-									"aria-label": connection.connected ? t("refresh") : t("connect"),
+									"aria-label": connection.connected ? t("reconnect") : t("connect"),
 									className: RemoteSettingsSection_module_css_default.iconButton,
 									disabled: busyId !== void 0,
-									title: connection.connected ? t("refresh") : t("connect"),
+									title: connection.connected ? t("reconnect") : t("connect"),
 									onClick: () => {
 										run(connection.id, async () => {
-											if (connection.connected) await coordinator.refresh();
+											if (connection.connected) await coordinator.reconnect(connection.id);
 											else await coordinator.connect(connection.id);
 										});
 									},
@@ -234,7 +234,7 @@ window.__ModuleLoader__.load({
 			return (/^[a-z]/.test(normalized) ? normalized : `remote-${normalized}`).slice(0, 64).replace(/-+$/g, "");
 		}
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/rpc.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/rpc.js
 		/**
 		* Four-quadrant RPC message model. Channels and messages are decoupled: HTTP,
 		* WebSocket, and in-process SSE are physical carriers, while logical messages
@@ -1879,7 +1879,7 @@ window.__ModuleLoader__.load({
             })));
           }
         }
-
+        
         if (${id}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
@@ -1887,7 +1887,7 @@ window.__ModuleLoader__.load({
         } else {
           newResult[${k}] = ${id}.value;
         }
-
+        
       `);
 					else if (!isOptionalIn) doc.write(`
         const ${id}_present = ${k} in input;
@@ -1922,7 +1922,7 @@ window.__ModuleLoader__.load({
             path: iss.path ? [${k}, ...iss.path] : [${k}]
           })));
         }
-
+        
         if (${id}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
@@ -1930,7 +1930,7 @@ window.__ModuleLoader__.load({
         } else {
           newResult[${k}] = ${id}.value;
         }
-
+        
       `);
 				}
 				doc.write(`payload.value = newResult;`);
@@ -4589,7 +4589,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			return /* @__PURE__ */ _superRefine(fn, params);
 		}
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/rpc.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/rpc.schema.js
 		/**
 		* Message-layer zod schemas: the four wire full forms + error body +
 		* carrier receipt. The payload slot is unknown in the full-form schemas — business payloads
@@ -4904,7 +4904,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			reason: union([literal("not-pending"), literal("bad-response")])
 		})]);
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/session-search.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/session-search.js
 		/**
 		* Return the longest prefix containing at most `maximum` Unicode code points.
 		* @param value - text to bound.
@@ -4922,7 +4922,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			return value;
 		}
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/sessions.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/sessions.schema.js
 		/**
 		* sessions domain zod schemas (names derived from map keys: sessionListRequestSchema /
 		* sessionListValueSchema). SessionEvent passthrough = strict envelope (type/seq/time) + wide
@@ -5170,7 +5170,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** session.cancel response value. */
 		const sessionCancelValueSchema = object({ accepted: literal(true) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/approvals.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/approvals.schema.js
 		/**
 		* approvals domain zod schemas (respond is a client-response; the payload schema serves
 		* the /api/respond endpoint's second parse after routing via the pending table).
@@ -5204,7 +5204,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			finishedAt: number().int().nonnegative().optional()
 		});
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/workspace.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/workspace.schema.js
 		/**
 		* workspace domain zod schemas (names derived from map keys). The
 		* WorkspaceId brand cast lives in sessions.schema (see the note there) and
@@ -5257,7 +5257,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** workspace.archiveSession response value: the full updated archive set. */
 		const workspaceArchiveSessionValueSchema = object({ archivedSessionIds: array(sessionIdSchema) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/events.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/events.schema.js
 		/**
 		* events domain zod schemas: MuxFrame / HostFrame unions (discriminatedUnion('type')).
 		* A frame is the payload slot of the ServerRequest full form; the SessionEvent inside
@@ -5452,7 +5452,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** host.openPath response value. */
 		const hostOpenPathValueSchema = object({ opened: literal(true) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/skills.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/skills.schema.js
 		/**
 		* skills domain zod schemas (names derived from map keys: skillListRequestSchema /
 		* skillListValueSchema).
@@ -5468,7 +5468,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** skill.list response value. */
 		const skillListValueSchema = object({ skills: array(skillEntrySchema) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/agent-presets.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/agent-presets.schema.js
 		/**
 		* agent-presets domain zod schemas (names derived from map keys:
 		* agentPresetListRequestSchema / agentPresetListValueSchema).
@@ -5521,7 +5521,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** agentPreset.remove response value. */
 		const agentPresetRemoveValueSchema = object({});
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/goals.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/goals.schema.js
 		/**
 		* goals domain zod schemas. Mutation-only shapes: every value schema is a
 		* `{ ref }` acknowledgement (clear: `{ cleared }`) — the current goal state
@@ -5574,7 +5574,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** goal.clear response value. */
 		const goalClearValueSchema = object({ cleared: literal(true) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/settings.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/settings.schema.js
 		/**
 		* settings domain zod schemas (names derived from map keys: settingsDescribeRequestSchema /
 		* settingsDescribeValueSchema / settingsUpdate* / settingsReplace*).
@@ -5636,7 +5636,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** settings.replace response value. */
 		const settingsReplaceValueSchema = settingsNamespaceViewSchema;
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/credentials.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/credentials.schema.js
 		/**
 		* credentials domain zod schemas (names derived from map keys:
 		* credentialsDescribeRequestSchema / credentialsDescribeValueSchema / …).
@@ -5664,7 +5664,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** credentials.unset response value. */
 		const credentialsUnsetValueSchema = object({});
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/llm.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/llm.schema.js
 		/**
 		* llm domain zod schemas (names derived from map keys: llmProvidersRequestSchema /
 		* llmProvidersValueSchema / llmModelsRequestSchema / llmModelsValueSchema).
@@ -5704,7 +5704,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** llm.discoverModels response value. */
 		const llmDiscoverModelsValueSchema = object({ models: array(discoveredModelViewSchema) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/subagents.schema.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/api/subagents.schema.js
 		/** Zod schemas for the browser-safe subagent domain. */
 		/** Healthy and diagnostic durable catalog rows. */
 		const subagentListEntrySchema = union([
@@ -5768,7 +5768,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 		/** subagent.interrupt response value. */
 		const subagentInterruptValueSchema = object({ accepted: literal(true) });
 		//#endregion
-		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_e9efce95e5e57cd2168691beebd30eb1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/fetch/client.js
+		//#region ../../node_modules/.pnpm/@deepseek-ai+dsh-host-apiproxy@0.1.0-rc.6_2b07e571a78c266dddd8964b8fa1e2f1/node_modules/@deepseek-ai/dsh-host-apiproxy/lib/types/fetch/client.js
 		/**
 		* Client side of the fetch carrier. AbstractApiClient holds every protocol invariant: rpcId minting,
 		* four-quadrant envelope wrap/unwrap, zod parsing, in-process SSE frame decoding, and the payload-direct
@@ -6261,6 +6261,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 				await this.registry.disconnect(connectionId);
 				await this.refresh();
 			}
+			/** Fully tear down and recreate one SSH-backed authority connection. */
+			async reconnect(connectionId) {
+				if (this.registry.get(connectionId) !== void 0) await this.registry.disconnect(connectionId);
+				else await request({
+					action: "disconnect",
+					connectionId
+				});
+				await this.registry.connect(connectionId);
+				await this.refresh();
+			}
 			async dispose() {
 				this.disposed = true;
 				await Promise.all([...this.providerDisposers.values()].map((dispose) => dispose()));
@@ -6321,6 +6331,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			connect: "Connect",
 			disconnect: "Disconnect",
 			refresh: "Refresh connection",
+			reconnect: "Reconnect",
 			remove: "Delete",
 			connected: "Connected",
 			disconnected: "Disconnected",
@@ -6341,6 +6352,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			connect: "连接",
 			disconnect: "断开",
 			refresh: "刷新连接",
+			reconnect: "重新连接",
 			remove: "删除",
 			connected: "已连接",
 			disconnected: "未连接",

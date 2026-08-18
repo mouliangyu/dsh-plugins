@@ -80,6 +80,17 @@ export class RemoteAuthorityCoordinator {
     await this.refresh()
   }
 
+  /** Fully tear down and recreate one SSH-backed authority connection. */
+  async reconnect(connectionId: string): Promise<void> {
+    if (this.registry.get(connectionId) !== undefined) {
+      await this.registry.disconnect(connectionId)
+    } else {
+      await request<RemoteStateView>({ action: 'disconnect', connectionId })
+    }
+    await this.registry.connect(connectionId)
+    await this.refresh()
+  }
+
   async dispose(): Promise<void> {
     this.disposed = true
     await Promise.all([...this.providerDisposers.values()].map(dispose => dispose()))
