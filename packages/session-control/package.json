@@ -31,6 +31,10 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./relay": {
+      "types": "./lib/types/relay.d.ts",
+      "default": "./lib/relay.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
@@ -38,10 +42,12 @@
     "lib/index.js",
     "lib/invariant.js",
     "lib/client.js",
+    "lib/relay.js",
     "lib/types/**/*.d.ts",
     "cordis.patch.yml",
     "TESTING.md"
   ],
+  "dependencies": {},
   "scripts": {
     "build": "tsc -p tsconfig.json && tsdown",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",

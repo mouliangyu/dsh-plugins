@@ -14,10 +14,14 @@ export interface RemoteConnectionConfig {
 export interface RemoteConnectionView extends RemoteConnectionConfig {
   /** Whether the SSH forward currently reaches the official remote API. */
   connected: boolean
+  /** Whether the optional session-control relay is available on both ends. */
+  relayConnected: boolean
   /** Same-origin browser path for the forwarded official API. */
   basePath: string
   /** Most recent connection failure, absent after a successful probe. */
   error?: string
+  /** Most recent relay capability failure, independent of API connectivity. */
+  relayError?: string
 }
 
 /** Current local configuration and forward state. */

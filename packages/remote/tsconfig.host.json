@@ -19,5 +19,5 @@
     "composite": true,
     "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
   },
-  "files": ["src/invariant.ts", "src/local.ts", "src/local-contract.ts", "src/ssh-config.ts", "src/transparent.ts"]
+  "files": ["src/invariant.ts", "src/local.ts", "src/local-contract.ts", "src/relay-channel.ts", "src/relay-protocol.ts", "src/relay-socket.ts", "src/session-relay.ts", "src/ssh-config.ts", "src/transparent.ts"]
 }

@@ -13,3 +13,8 @@
       name: 'dsh-remote'
       config:
         connections: []
+
+    - id: dsh-remote-relay-channel
+      name: 'dsh-remote/relay-channel'
+      config:
+        requestTimeoutSeconds: 30

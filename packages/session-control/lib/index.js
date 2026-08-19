@@ -1,3 +1,4 @@
+import { createSessionRelay, createSessionRelayService, formatSessionAddress, latestRelayAddress, parseSessionAddress } from "./relay.js";
 import { randomUUID } from "node:crypto";
 //#region ../../node_modules/.pnpm/@deepseek-ai+cosmokit@1.8.2/node_modules/@deepseek-ai/cosmokit/lib/index.js
 /** Return true when a value is `null` or `undefined`. */
@@ -803,6 +804,7 @@ const name = "session_control";
 /** Services required by the session-manager tools. */
 const inject = [
 	"agents",
+	"apiProxy",
 	"sessionPersistence",
 	"sessionQuery",
 	"settings",
@@ -877,6 +879,8 @@ function createCoordinatorMessage(content, senderSessionId) {
 function apply(ctx, config = {}) {
 	const resolved = resolveConfig(config);
 	const handles = /* @__PURE__ */ new Map();
+	const relay = createSessionRelayService(ctx);
+	ctx.provide("sessionRelay", relay);
 	const settings = ctx.settings.register(SETTINGS_NAMESPACE, RuntimeSettings, { base: { allowGlobalAccess: resolved.allowGlobalAccess } });
 	const globalAccessEnabled = () => settings.get().allowGlobalAccess;
 	ctx.effect(() => ctx.webServer.register({
@@ -937,8 +941,7 @@ function apply(ctx, config = {}) {
 		async execute(_args, exec) {
 			const caller = requireAgent(exec);
 			const entries = globalAccessEnabled() ? await globalSessionEntries(ctx) : await workspaceSessionEntries(ctx, caller);
-			if (entries.length === 0) return "(no sessions)";
-			return formatSessionEntries(ctx, entries);
+			return [entries.length === 0 ? "" : await formatSessionEntries(ctx, entries), (globalAccessEnabled() ? await relay.listSessions() : []).map((entry) => `${entry.sessionId} [${entry.running ? "running" : "ready"}] [remote]${entry.cwd === void 0 ? "" : ` - ${entry.cwd}`}`).join("\n")].filter(Boolean).join("\n") || "(no sessions)";
 		}
 	}));
 	ctx.tools.register(defineSessionTool({
@@ -1051,9 +1054,38 @@ function apply(ctx, config = {}) {
 		output: TEXT_OUTPUT,
 		async execute(args, exec) {
 			const parent = requireAgent(exec);
-			const target = await requireManagedSession(ctx, parent, sessionId(args.session_id), globalAccessEnabled());
+			const address = parseSessionAddress(nonBlank("session_id", args.session_id));
+			if (address.authorityId !== "local") {
+				requireGlobalAccess(globalAccessEnabled());
+				await relay.send(createSessionRelay(String(parent.id), address, nonBlank("message", args.message)));
+				return `Queued a follow-up for session ${formatSessionAddress(address)}.`;
+			}
+			const target = await requireManagedSession(ctx, parent, sessionId(address.sessionId), globalAccessEnabled());
 			(await ensureResident(ctx, handles, target, parent)).agent.followup(createCoordinatorMessage(nonBlank("message", args.message), parent.id));
 			return `Queued a follow-up for session ${String(target)}.`;
+		}
+	}));
+	ctx.tools.register(defineSessionTool({
+		name: "session_reply",
+		description: "Reply to the most recent message relayed by another accessible session. The reply is queued durably and can resume a cold session.",
+		parameters: { message: {
+			type: "string",
+			required: true,
+			description: "Text reply for the session that most recently sent a relay message."
+		} },
+		output: TEXT_OUTPUT,
+		async execute(args, exec) {
+			const parent = requireAgent(exec);
+			const address = latestRelayAddress(parent);
+			if (address.authorityId !== "local") {
+				requireGlobalAccess(globalAccessEnabled());
+				await relay.send(createSessionRelay(String(parent.id), address, nonBlank("message", args.message)));
+				return `Queued a reply for session ${formatSessionAddress(address)}.`;
+			}
+			const target = sessionId(address.sessionId);
+			await requireManagedSession(ctx, parent, target, globalAccessEnabled());
+			(await ensureResident(ctx, handles, target, parent)).agent.followup(createCoordinatorMessage(nonBlank("message", args.message), parent.id));
+			return `Queued a reply for session ${String(target)}.`;
 		}
 	}));
 	ctx.tools.register(defineSessionTool({

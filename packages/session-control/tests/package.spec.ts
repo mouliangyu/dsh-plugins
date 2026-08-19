@@ -17,7 +17,7 @@ describe("session-control package", () => {
     expect(manifest.name).toBe("dsh-session-control");
     expect(manifest.private).toBe(false);
     expect(Object.keys(manifest.exports)).toEqual(
-      expect.arrayContaining([".", "./invariant", "./client", "./package.json"]),
+      expect.arrayContaining([".", "./invariant", "./client", "./relay", "./package.json"]),
     );
     expect(manifest.files).toEqual(
       expect.arrayContaining(["lib/types/**/*.d.ts", "TESTING.md"]),

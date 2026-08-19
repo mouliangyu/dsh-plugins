@@ -10,6 +10,8 @@ Global access is enabled by default. Turn it off in **Settings > Plugins >
 Plugin configuration > Session & Workspace Control** to restrict operations to
 the caller's current workspace.
 
+The package also provides the transport-neutral session relay service. Authority plugins register providers without exposing their wire protocol, connection lifecycle, or health state to the session tools. `dsh-remote` supplies the SSH transport described in [its relay design](../remote/RELAY_DESIGN.md).
+
 ## Tool Contract
 
 | Tool              | Action                                                                                   |
@@ -17,6 +19,7 @@ the caller's current workspace.
 | `session_create`  | Create a related session in the caller's or a selected workspace and queue its initial task. |
 | `session_list`    | List all accessible sessions with id, location, title, and live status.                  |
 | `session_send`    | Resume a persisted session when needed and queue more work.                              |
+| `session_reply`   | Reply to the latest message relayed by another session, without repeating its id.       |
 | `session_stop`    | Stop a live target session while preserving queued input.                                |
 | `session_archive` | Optional. Archive a completed target session after explicit user authorization.          |
 | `workspace_list` | List accessible projects with stable ids, paths, status, and session counts. |
@@ -32,6 +35,10 @@ workspace so the new session has a concrete filesystem identity.
 
 New sessions are ordinary DSH workspace sessions. They appear in the existing
 Web sidebar and use its normal live status, title, and persistence behavior.
+Ordinary sessions can exchange durable agent-to-agent text messages: the sender
+uses `session_send`, and the recipient uses `session_reply` to answer the most
+recent relay. This is session delegation chat, not human question or approval
+forwarding.
 
 ## Install
 
@@ -86,7 +93,7 @@ deployment.
 
 ## Current Limitations
 
-- Remote execution belongs to a separate plugin and is not implemented here.
+- Cross-authority delivery requires a relay provider such as `dsh-remote`.
 - It does not delete session logs.
 - Session titles are produced by the normal DSH title pipeline and may initially appear as `untitled`.
 - The package targets the upstream developer preview and must be checked against the installed DSH version before production use.

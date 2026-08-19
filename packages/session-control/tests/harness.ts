@@ -5,6 +5,7 @@ import type { ToolDefinition } from "@deepseek-ai/dsh-tools";
 import type { Workspace, WorkspaceId } from "@deepseek-ai/dsh-workspace";
 import { vi } from "vitest";
 import { apply, type Config } from "../src/index.ts";
+import type { SessionRelayService } from "../src/relay.ts";
 
 export interface MutableWorkspace extends Workspace {
   title: string;
@@ -27,6 +28,7 @@ export interface TestHarness {
   }>;
   readonly settingsValue: { allowGlobalAccess: boolean };
   readonly effects: Array<() => unknown>;
+  readonly relay: SessionRelayService;
   addWorkspace(options: {
     id: string;
     path: string;
@@ -39,6 +41,7 @@ export interface TestHarness {
     cwd?: string;
     status?: string;
     agentOptions?: unknown;
+    events?: readonly unknown[];
   }): Agent;
   tool(name: string): ToolDefinition;
   dispose(): Promise<void>;
@@ -55,6 +58,7 @@ export function createHarness(config: Config = {}): TestHarness {
   const createdHandles: AgentHandle[] = [];
   const routes: TestHarness["routes"] = [];
   const effects: Array<() => unknown> = [];
+  const services = new Map<string, unknown>();
   const settingsValue = {
     allowGlobalAccess: config.allowGlobalAccess ?? true,
   };
@@ -86,6 +90,11 @@ export function createHarness(config: Config = {}): TestHarness {
     routes,
     settingsValue,
     effects,
+    get relay() {
+      const relay = services.get("sessionRelay");
+      if (relay === undefined) throw new Error("missing sessionRelay service");
+      return relay as SessionRelayService;
+    },
     addWorkspace(options) {
       const workspace = {
         id: options.id as WorkspaceId,
@@ -108,7 +117,10 @@ export function createHarness(config: Config = {}): TestHarness {
         id: options.id as SessionId,
         options: options.agentOptions ?? { model: "test-model" },
         status: options.status ?? "ready",
-        session: { header: { cwd: options.cwd } },
+        session: {
+          header: { cwd: options.cwd },
+          events: options.events ?? [],
+        },
         followup: vi.fn(),
         cancel: vi.fn(),
       } satisfies Agent;
@@ -163,6 +175,44 @@ export function createHarness(config: Config = {}): TestHarness {
       async list() {
         return persisted;
       },
+      async inspect(id: SessionId) {
+        return { events: agents.get(String(id))?.session.events ?? [] };
+      },
+    },
+    apiProxy: {
+      sessions: {
+        async prompt(request: {
+          rpcId: string;
+          payload: { sessionId: SessionId; content: ReadonlyArray<{ type: "text"; text: string }> };
+        }) {
+          const target = agents.get(String(request.payload.sessionId));
+          if (target === undefined) {
+            return { result: { ok: false as const, error: { message: "unknown session" } } };
+          }
+          const events = target.session.events as unknown[];
+          events.push({
+            type: "user/message",
+            data: { source: { kind: "user", rpcId: request.rpcId }, content: request.payload.content },
+          });
+          target.followup({ content: request.payload.content, source: { kind: "user", rpcId: request.rpcId } });
+          return { result: { ok: true as const, value: { accepted: true as const } } };
+        },
+        async list() {
+          return {
+            result: {
+              ok: true as const,
+              value: {
+                items: [...agents.values()].map(agent => ({
+                  sessionId: agent.id,
+                  updatedAt: 1,
+                  running: agent.status === "running",
+                  ...(agent.session.header.cwd === undefined ? {} : { cwd: agent.session.header.cwd }),
+                })),
+              },
+            },
+          };
+        },
+      },
     },
     sessionQuery: {
       async readTitleSnapshots(ids: readonly SessionId[]) {
@@ -198,6 +248,9 @@ export function createHarness(config: Config = {}): TestHarness {
         routes.push(route as TestHarness["routes"][number]);
         return () => {};
       },
+      registerUpgrade() {
+        return () => {};
+      },
     },
     workspaceRegistry: {
       list: () => [...workspaces.values()],
@@ -223,6 +276,12 @@ export function createHarness(config: Config = {}): TestHarness {
     effect(setup: () => unknown) {
       const result = setup();
       if (typeof result === "function") effects.push(result as () => unknown);
+    },
+    provide(name: string, value: unknown) {
+      services.set(name, value);
+    },
+    get(name: string) {
+      return services.get(name);
     },
   } as unknown as Context;
 

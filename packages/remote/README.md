@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-`dsh-remote` connects the Web application to official DSH instances over SSH. A remote authority appears in the ordinary Workspace tree, and its root sessions use the ordinary conversation renderer, model selector, approval and question responders, cancellation, and live event stream.
+`dsh-remote` connects the Web application to official DSH instances over SSH. A remote authority appears in the ordinary Workspace tree, and its root sessions use the ordinary conversation renderer, model selector, approval and question responders, cancellation, live event stream, and message-level agent relay.
 
 ## Install
 
@@ -20,7 +20,7 @@ The plugin requires a DSH build whose core client runtime and Workspace UI provi
 
 Open Settings, select Remote, and add a connection. The form discovers explicit aliases from `~/.ssh/config` and recursive `Include` files; it does not probe those hosts. Choose an alias, assign a stable authority id, and set the remote DSH Web port. Authentication and final option resolution remain OpenSSH responsibilities, including `ProxyJump`, `IdentityFile`, and `ssh-agent`.
 
-The remote host must already provide the official `dsh` command. Connecting starts `dsh --profile web` on remote loopback when the configured port is not already listening, detaches it with `nohup`, and opens an SSH local forward. No remote plugin, daemon, Unix socket, project registry, or manual profile edit is installed.
+The remote host must already provide the official `dsh` command. Connecting starts `dsh --profile web` on remote loopback when the configured port is not already listening, detaches it with `nohup`, and opens an SSH local forward. Agent relay requires `dsh-session-control` and `dsh-remote` in the Remote Web profile; `dsh-remote` contributes only its incoming relay entry when the connection list is empty. No daemon, Unix socket, project registry, or manual profile edit is needed.
 
 Local settings store only the authority id, SSH host alias, and remote port. The remote DSH owns its Workspace registry, session logs, titles, model selection, permissions, and recovery.
 
@@ -34,6 +34,8 @@ The provider owns SSH lifecycle, reconnection, and health state. Disconnecting c
 
 The Reconnect action additionally restarts the remote Web process recorded by `~/.dsh/remote-web.pid`, then recreates the SSH forward. It only stops a PID whose command line is a DSH Web process; an occupied port or an unsafe PID file fails explicitly.
 
+When both profiles compose `dsh-session-control` and `dsh-remote`, the Host opens one bidirectional relay WebSocket through the existing SSH local forward. `dsh-remote` owns its protocol, connection lifecycle, and capability status; `dsh-session-control` only receives a transport-neutral provider. The channel is separate from the browser event stream and carries complete agent messages, not model tokens. See [RELAY_DESIGN.md](RELAY_DESIGN.md).
+
 ## Configuration
 
 ```yaml
@@ -46,12 +48,15 @@ The Reconnect action additionally restarts the remote Web process recorded by `~
 
 Connection records are edited through Settings and stored in the `dsh-remote` settings namespace.
 
+The `dsh-remote/relay-channel` entry accepts `requestTimeoutSeconds` from 1 through 300 and defaults to 30.
+
 ## Limitations
 
 - The bundle uses the official browse directory picker for both local and remote Workspace creation; installing it replaces the platform-native local chooser.
 - Remote access inherits OpenSSH host-key and authentication behavior. `BatchMode=yes` makes password prompts and unresolved first-use confirmation fail visibly.
 - The remote Web Host listens only on remote loopback. A separate remote port is configured, but it is not exposed outside the SSH connection.
 - Multiple top-level API routers cannot coexist; authority routing must be composed in the single `connection.routeApi()` registration.
+- Relay delivery is unavailable until both Web profiles load `dsh-session-control` and `dsh-remote`; ordinary Remote API access remains available and reports the relay error separately.
 
 ## Model Experience
 

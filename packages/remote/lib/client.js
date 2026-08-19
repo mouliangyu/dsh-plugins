@@ -18,20 +18,20 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RemoteSettingsSection_module_css_default = {
-			"formActions": "ghiA-a_formActions",
 			"remote-spin": "ghiA-a_remote-spin",
-			"iconButton": "ghiA-a_iconButton",
-			"form": "ghiA-a_form",
 			"listButton": "ghiA-a_listButton",
-			"empty": "ghiA-a_empty",
-			"root": "ghiA-a_root",
-			"connectionList": "ghiA-a_connectionList",
-			"row": "ghiA-a_row",
-			"rowMain": "ghiA-a_rowMain",
-			"spinning": "ghiA-a_spinning",
 			"hostEmpty": "ghiA-a_hostEmpty",
+			"iconButton": "ghiA-a_iconButton",
 			"error": "ghiA-a_error",
-			"header": "ghiA-a_header"
+			"root": "ghiA-a_root",
+			"header": "ghiA-a_header",
+			"connectionList": "ghiA-a_connectionList",
+			"form": "ghiA-a_form",
+			"formActions": "ghiA-a_formActions",
+			"rowMain": "ghiA-a_rowMain",
+			"empty": "ghiA-a_empty",
+			"spinning": "ghiA-a_spinning",
+			"row": "ghiA-a_row"
 		};
 		//#endregion
 		//#region src/client/RemoteSettingsSection.tsx
@@ -115,7 +115,8 @@ window.__ModuleLoader__.load({
 											":",
 											connection.remotePort
 										] }),
-										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: connection.connected ? t("connected") : connection.error ?? t("disconnected") })
+										/* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: connection.connected ? t("connected") : connection.error ?? t("disconnected") }),
+										connection.connected ? /* @__PURE__ */ (0, react_jsx_runtime.jsx)("small", { children: connection.relayConnected ? t("relayConnected") : connection.relayError ?? t("relayUnavailable") }) : null
 									]
 								}),
 								/* @__PURE__ */ (0, react_jsx_runtime.jsx)("button", {
@@ -6341,6 +6342,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			disconnected: "Disconnected",
 			noConnections: "No remote connections configured.",
 			edit: "Edit",
+			relayConnected: "Agent relay connected",
+			relayUnavailable: "Agent relay unavailable",
 			noSshHosts: "No explicit Host aliases were found in ~/.ssh/config."
 		};
 		/** Simplified Chinese copy for the remote-project settings page. */
@@ -6362,6 +6365,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 			disconnected: "未连接",
 			noConnections: "尚未配置远程连接。",
 			edit: "编辑",
+			relayConnected: "Agent relay 已连接",
+			relayUnavailable: "Agent relay 不可用",
 			noSshHosts: "在 ~/.ssh/config 中没有发现明确的 Host alias。"
 		};
 		//#endregion

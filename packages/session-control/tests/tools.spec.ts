@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createHarness } from "./harness.ts";
+import { relayRpcId } from "../src/relay.ts";
 
 describe("session-control tools", () => {
   it("registers the stable tool surface and keeps archive opt-in", () => {
@@ -13,6 +14,7 @@ describe("session-control tools", () => {
       "workspace_remove",
       "workspace_sessions",
       "session_send",
+      "session_reply",
       "session_stop",
     ]);
     expect(createHarness({ allowArchive: true }).tools.has("session_archive")).toBe(true);
@@ -111,6 +113,162 @@ describe("session-control tools", () => {
     ]);
     const target = harness.agents.get("cold")!;
     expect(target.followup).toHaveBeenCalledTimes(2);
+  });
+
+  it("replies to the latest relayed session and identifies the current sender", async () => {
+    const harness = createHarness();
+    const caller = harness.addAgent({
+      id: "caller",
+      cwd: "/one",
+      events: [
+        {
+          type: "user/message",
+          data: {
+            source: {
+              kind: "coordinator",
+              form: "relay",
+              senderSessionId: "old-sender",
+            },
+          },
+        },
+        {
+          type: "user/message",
+          data: {
+            source: {
+              kind: "coordinator",
+              form: "relay",
+              senderSessionId: "latest-sender",
+            },
+          },
+        },
+      ],
+    });
+    harness.persisted.push({ id: "latest-sender" as never, createdAt: 1 });
+
+    await expect(
+      harness.tool("session_reply").execute(
+        { message: "answer" },
+        { agent: caller },
+      ),
+    ).resolves.toBe("Queued a reply for session latest-sender.");
+    expect(harness.resumedOptions).toEqual([
+      {
+        resumeSessionId: "latest-sender",
+        agentOptions: { model: "test-model" },
+      },
+    ]);
+    const target = harness.agents.get("latest-sender")!;
+    expect(vi.mocked(target.followup)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: [{ type: "text", text: "answer" }],
+        source: {
+          kind: "coordinator",
+          form: "relay",
+          senderSessionId: "caller",
+        },
+      }),
+    );
+  });
+
+  it("rejects a reply when no other session has relayed a message", async () => {
+    const harness = createHarness();
+    const caller = harness.addAgent({ id: "caller" });
+    await expect(
+      harness.tool("session_reply").execute(
+        { message: "answer" },
+        { agent: caller },
+      ),
+    ).rejects.toThrow(/no relayed session message/);
+  });
+
+  it("routes an authority-qualified send through the registered provider", async () => {
+    const harness = createHarness();
+    const caller = harness.addAgent({ id: "caller" });
+    const send = vi.fn(async () => {});
+    harness.relay.registerProvider({
+      authorityId: "remote-b",
+      send,
+      listSessions: async () => [],
+    });
+
+    await expect(
+      harness.tool("session_send").execute(
+        { session_id: "@authority/remote-b/target", message: "remote work" },
+        { agent: caller },
+      ),
+    ).resolves.toBe("Queued a follow-up for session @authority/remote-b/target.");
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      from: { authorityId: "local", sessionId: "caller" },
+      to: { authorityId: "remote-b", sessionId: "target" },
+      content: "remote work",
+    }));
+  });
+
+  it("replies to an authority-qualified relay recorded by the API gateway", async () => {
+    const harness = createHarness();
+    const caller = harness.addAgent({ id: "caller", events: [] });
+    const incoming = {
+      relayId: "relay-1",
+      from: { authorityId: "remote-b", sessionId: "remote-sender" },
+      to: { authorityId: "local", sessionId: "caller" },
+      content: "question",
+    };
+    (caller.session.events as unknown[]).push({
+      type: "user/message",
+      data: { source: { kind: "user", rpcId: relayRpcId(incoming) } },
+    });
+    const send = vi.fn(async () => {});
+    harness.relay.registerProvider({
+      authorityId: "remote-b",
+      send,
+      listSessions: async () => [],
+    });
+
+    await expect(
+      harness.tool("session_reply").execute({ message: "answer" }, { agent: caller }),
+    ).resolves.toBe("Queued a reply for session @authority/remote-b/remote-sender.");
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      to: { authorityId: "remote-b", sessionId: "remote-sender" },
+      content: "answer",
+    }));
+  });
+
+  it("applies workspace authorization to the inferred reply target", async () => {
+    const harness = createHarness({ allowGlobalAccess: false });
+    harness.addWorkspace({
+      id: "one",
+      path: "/one",
+      title: "One",
+      sessionIds: ["caller"],
+    });
+    harness.addWorkspace({
+      id: "two",
+      path: "/two",
+      title: "Two",
+      sessionIds: ["other"],
+    });
+    const caller = harness.addAgent({
+      id: "caller",
+      cwd: "/one",
+      events: [
+        {
+          type: "user/message",
+          data: {
+            source: {
+              kind: "coordinator",
+              form: "relay",
+              senderSessionId: "other",
+            },
+          },
+        },
+      ],
+    });
+    await expect(
+      harness.tool("session_reply").execute(
+        { message: "answer" },
+        { agent: caller },
+      ),
+    ).rejects.toThrow(/outside the caller workspace/);
   });
 
   it("stops only another running session and preserves its inbox", async () => {

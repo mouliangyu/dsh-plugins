@@ -43,6 +43,10 @@
       "types": "./lib/types/invariant.d.ts",
       "default": "./lib/invariant.js"
     },
+    "./relay-channel": {
+      "types": "./lib/types/relay-channel.d.ts",
+      "default": "./lib/relay-channel.js"
+    },
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./src/*": "./src/*",
     "./package.json": "./package.json"
@@ -50,6 +54,8 @@
   "files": [
     "lib/index.js",
     "lib/invariant.js",
+    "lib/relay-channel.js",
+    "lib/relay-socket-*.js",
     "lib/types/transparent.js",
     "lib/types/transparent.d.ts",
     "lib/client.js",
@@ -90,6 +96,7 @@
     "ws": "^8.21.0"
   },
   "peerDependencies": {
+    "dsh-session-control": "0.1.0",
     "@deepseek-ai/cordis": "*",
     "@deepseek-ai/dsh-agent": "*",
     "@deepseek-ai/dsh-app-boot": "*",
@@ -127,6 +134,7 @@
     "react": { "optional": true }
   },
   "devDependencies": {
+    "dsh-session-control": "workspace:*",
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/cordis-plugin-group": "^1.0.1",
     "@deepseek-ai/cordis-plugin-include": "^1.0.6",

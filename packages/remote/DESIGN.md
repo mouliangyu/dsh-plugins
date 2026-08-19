@@ -18,6 +18,8 @@ A remote DSH is a top-level authority. Its Workspaces and root Sessions particip
 
 The core runtime and Workspace UI render the aggregated managers directly. `dsh-remote` contributes the provider and settings UI; remote Workspace rows add an authority label, and directory operations select an authority before calling the shared Workspace runtime.
 
+For agent-to-agent messages, `dsh-remote` owns both WebSocket peers and the private relay protocol. Its Host provider opens `/api/dsh-remote/session-relay` through the existing forward and registers with the transport-neutral `SessionRelayService` supplied by `dsh-session-control`. Its independent Remote relay-channel entry accepts the socket and registers the Host peer with the Remote session service. Accepted messages use the official `apiProxy.sessions.prompt`, so cold resume, model selection, and agent presets remain DSH responsibilities. [RELAY_DESIGN.md](RELAY_DESIGN.md) defines the detailed split.
+
 ## SSH transport
 
 The local Host starts the remote official Web profile on remote loopback only when the configured port is not listening:
@@ -36,7 +38,7 @@ The bundle disables the adaptive local directory picker and composes the officia
 
 ## Failure behavior
 
-Unknown authorities and duplicate provider or API-router registrations fail explicitly. Aggregate list operations keep successful authorities visible when another authority is unavailable and fail only when every call fails. Provider state changes remove dead remote clients from routing; the provider decides when to reconnect or report degraded health.
+Unknown authorities and duplicate provider or API-router registrations fail explicitly. Aggregate list operations keep successful authorities visible when another authority is unavailable and fail only when every call fails. Provider state changes remove dead remote clients from routing; the provider decides when to reconnect or report degraded health. API connectivity and relay capability are reported independently, so an unavailable relay endpoint does not disconnect the ordinary Remote authority.
 
 ## Security
 

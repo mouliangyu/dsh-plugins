@@ -8,6 +8,8 @@
 默认允许全局访问。可以在 **设置 > 插件 > 插件配置 > Session & Workspace
 Control** 中关闭，使所有操作仅限调用者当前所在的项目。
 
+本插件还提供与传输方式无关的 session relay 服务。Authority 插件通过 provider 接口接入，不会把线路协议、连接生命周期或健康状态暴露给 session 工具。`dsh-remote` 提供 SSH transport，组件分工见[其 relay 设计](../remote/RELAY_DESIGN.md)。
+
 ## 工具约定
 
 | 工具 | 功能 |
@@ -15,6 +17,7 @@ Control** 中关闭，使所有操作仅限调用者当前所在的项目。
 | `session_create` | 在当前或指定项目中创建关联会话，并提交初始任务。 |
 | `session_list` | 列出可访问的会话、所属项目、标题和实时状态。 |
 | `session_send` | 必要时恢复已持久化的会话，并发送后续任务。 |
+| `session_reply` | 回复最近一条由其他会话转发的消息，无需再次填写会话 id。 |
 | `session_stop` | 停止目标会话当前运行，保留已排队输入。 |
 | `session_archive` | 可选功能；仅在明确启用后归档已完成的目标会话。 |
 | `workspace_list` | 列出可访问的顶层项目、路径、状态和会话数量。 |
@@ -25,6 +28,9 @@ Control** 中关闭，使所有操作仅限调用者当前所在的项目。
 
 新会话是普通的 DSH 项目会话，会直接出现在现有 Web 侧边栏中，并沿用
 DSH 的实时状态、标题与持久化行为。
+普通会话之间可以交换持久化的 agent-to-agent 文本消息：发送方使用
+`session_send`，接收方使用 `session_reply` 回复最近一条 relay 消息。这是
+会话委派式对话，不是向用户转发提问或审批。
 
 ## 安装
 
@@ -73,7 +79,7 @@ DSH 编译期类型声明并提交经过验证的 bundle。运行时 DSH 包由�
 
 ## 当前限制
 
-- 远程执行属于独立插件，不在本插件中实现。
+- 跨 authority 投递需要 `dsh-remote` 等 relay provider。
 - 不删除会话日志。
 - 会话标题由 DSH 正常标题流程生成，刚创建时可能显示为 `untitled`。
 - 当前面向上游 developer preview，生产使用前需要与安装的 DSH 版本做兼容性验证。

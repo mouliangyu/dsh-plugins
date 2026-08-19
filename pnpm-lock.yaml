@@ -168,6 +168,9 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.1
+      dsh-session-control:
+        specifier: workspace:*
+        version: link:../session-control
 
   packages/session-control: {}
 

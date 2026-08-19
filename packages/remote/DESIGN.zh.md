@@ -18,6 +18,8 @@
 
 Core runtime 与 Workspace UI 直接渲染聚合后的 manager。`dsh-remote` 只贡献 provider 与设置 UI；远端 Workspace 行增加 authority 标签，目录操作在调用共享 Workspace runtime 前选择 authority。
 
+Agent 间消息使用 `dsh-remote` 自有的双端 WebSocket 与私有 relay 协议。Host provider 通过现有 forward 打开 `/api/dsh-remote/session-relay`，并向 `dsh-session-control` 提供的 transport-neutral `SessionRelayService` 注册。独立的 Remote relay-channel entry 接受 socket，并把 Host peer 注册到 Remote session service。消息通过官方 `apiProxy.sessions.prompt` 投递，因此冷恢复、模型选择和 agent preset 仍由 DSH 负责。详细分工见 [RELAY_DESIGN.md](RELAY_DESIGN.md)。
+
 ## SSH transport
 
 只有配置端口尚未监听时，本地 Host 才会在远端 loopback 启动官方 Web profile：
@@ -36,7 +38,7 @@ Bundle 禁用自适应本地目录选择器，并组合官方 browse backend 与
 
 ## 失败行为
 
-未知 authority、重复 provider 与重复 API-router 注册都会明确失败。聚合列表操作在某个 authority 不可用时保留其他成功结果，只有全部调用失败才报错。Provider 状态变化会从路由中移除失效远端 client；何时重连或报告 degraded health 由 provider 决定。
+未知 authority、重复 provider 与重复 API-router 注册都会明确失败。聚合列表操作在某个 authority 不可用时保留其他成功结果，只有全部调用失败才报错。Provider 状态变化会从路由中移除失效远端 client；何时重连或报告 degraded health 由 provider 决定。API 连接与 relay 能力独立报告，因此 relay endpoint 不可用不会断开普通 Remote authority。
 
 ## 安全
 

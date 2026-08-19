@@ -12,7 +12,11 @@ const CLIENT_EXTERNALS = [
 
 const host: UserConfig = {
   name: PACKAGE_NAME,
-  entry: { index: 'lib/types/local.js', invariant: 'lib/types/invariant.js' },
+  entry: {
+    index: 'lib/types/local.js',
+    invariant: 'lib/types/invariant.js',
+    'relay-channel': 'lib/types/relay-channel.js',
+  },
   outDir: 'lib',
   format: 'esm',
   platform: 'node',

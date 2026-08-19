@@ -24,7 +24,7 @@ flowchart LR
   B --> C[New DSH session]
   C --> D[Workspace registry]
   D --> E[Web sidebar]
-  A -->|session_list/send/stop| B
+  A -->|session_list/send/reply/stop| B
   B --> C
 ```
 
@@ -41,9 +41,10 @@ session/project targets must belong to that workspace. Workspace registration
 1. `session_create` creates a new DSH session with `parentSession` set to the caller, attaches it to the caller's workspace or an explicitly selected workspace, then queues the initial task.
 2. The Web sidebar discovers it through the existing workspace session projection. No custom sidebar store is required.
 3. `session_send` resumes a cold persisted session only after the workspace membership check, then queues a follow-up.
-4. `session_stop` cancels only the active turn and preserves queued messages.
-5. `session_archive` is disabled unless deployment configuration enables it. It refuses to archive the caller or a running session.
-6. `workspace_list`, `workspace_create`, `workspace_rename`, `workspace_remove`,
+4. `session_reply` scans the current durable log backward for the latest relay source, authorizes that sender as a target, resumes it when cold, and queues a reply carrying the current session id.
+5. `session_stop` cancels only the active turn and preserves queued messages.
+6. `session_archive` is disabled unless deployment configuration enables it. It refuses to archive the caller or a running session.
+7. `workspace_list`, `workspace_create`, `workspace_rename`, `workspace_remove`,
    and `workspace_sessions` expose durable top-level project management while
    retaining the registry's directory and session-log safety guarantees.
 
@@ -53,3 +54,5 @@ Remote execution is intentionally outside this package. A separate remote
 plugin may integrate with DSH's subagent provider interfaces without coupling
 SSH credentials, host lifecycle, or path mapping to session discovery and
 project registration.
+
+Cross-authority agent messaging uses the transport-neutral `SessionRelayService`. This package owns address parsing, provider registration, local delivery, and durable reply attribution. Authority plugins such as `dsh-remote` own protocol validation, connections, reconnection, and transport status. The SSH transport design is in [the dsh-remote relay reference](../remote/RELAY_DESIGN.md).

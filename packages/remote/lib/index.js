@@ -1,3 +1,4 @@
+import { n as SESSION_RELAY_PATH, t as SessionRelaySocketProvider } from "./relay-socket-BrTEJvQe.js";
 import { spawn } from "node:child_process";
 import { request } from "node:http";
 import z from "@deepseek-ai/schemastery";
@@ -7,6 +8,7 @@ import { glob, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
 import SSHConfig from "ssh-config";
+import "dsh-session-control/relay";
 import { createServer } from "node:net";
 //#region lib/types/ssh-config.js
 /** OpenSSH host-alias discovery for the local Web plugin. */
@@ -74,6 +76,104 @@ function expandInclude(pattern, sshDirectory) {
 }
 function isMissingFile(error) {
 	return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+}
+//#endregion
+//#region lib/types/session-relay.js
+/** Host-side WebSocket provider for the session-control relay service. */
+/** One Host-side remote authority relay provider. */
+var RemoteSessionRelayProvider = class RemoteSessionRelayProvider {
+	authorityId;
+	peerId;
+	socketProvider;
+	socket;
+	constructor(options, socket) {
+		this.authorityId = options.authorityId;
+		this.peerId = options.peerId;
+		this.socket = socket;
+		this.socketProvider = new SessionRelaySocketProvider(options.authorityId, socket, {
+			receive: (message) => options.receive({
+				...message,
+				from: {
+					authorityId: options.authorityId,
+					sessionId: message.from.sessionId
+				},
+				to: {
+					authorityId: "local",
+					sessionId: message.to.sessionId
+				}
+			}),
+			listSessions: options.listSessions ?? (async () => []),
+			closed: options.closed
+		}, options.requestTimeoutMs);
+	}
+	/** Open and handshake a provider through an existing SSH local forward. */
+	static async connect(options) {
+		const socket = await openRelaySocket(options);
+		return new RemoteSessionRelayProvider(options, socket);
+	}
+	async send(message) {
+		await this.socketProvider.send({
+			...message,
+			from: {
+				authorityId: this.peerId,
+				sessionId: message.from.sessionId
+			},
+			to: {
+				authorityId: "local",
+				sessionId: message.to.sessionId
+			}
+		});
+	}
+	async listSessions() {
+		return this.socketProvider.listSessions();
+	}
+	async close() {
+		this.socketProvider.close();
+		if (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING) this.socket.close();
+	}
+};
+async function openRelaySocket(options) {
+	const socket = new WebSocket(`ws://127.0.0.1:${String(options.forward.localPort)}${SESSION_RELAY_PATH}`, { headers: {
+		host: `127.0.0.1:${String(options.forward.localPort)}`,
+		origin: `http://127.0.0.1:${String(options.forward.localPort)}`
+	} });
+	await new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			socket.close();
+			reject(/* @__PURE__ */ new Error(`session relay handshake timed out for ${options.authorityId}`));
+		}, options.requestTimeoutMs);
+		const fail = (error) => {
+			clearTimeout(timer);
+			reject(error);
+		};
+		socket.once("error", fail);
+		socket.once("open", () => {
+			socket.send(JSON.stringify({
+				type: "hello",
+				version: 1,
+				peerId: options.peerId
+			}));
+		});
+		socket.once("message", (data, isBinary) => {
+			if (isBinary) {
+				fail(/* @__PURE__ */ new Error("session relay handshake must be text"));
+				return;
+			}
+			try {
+				const frame = JSON.parse(data.toString("utf8"));
+				if (frame.type !== "ready" || frame.version !== 1) {
+					fail(/* @__PURE__ */ new Error("remote session relay rejected the protocol"));
+					return;
+				}
+				clearTimeout(timer);
+				socket.removeListener("error", fail);
+				resolve();
+			} catch (error) {
+				fail(error instanceof Error ? error : new Error(String(error)));
+			}
+		});
+	});
+	return socket;
 }
 //#endregion
 //#region lib/types/transparent.js
@@ -177,7 +277,11 @@ async function openRemoteApiForward(options) {
 //#region lib/types/local.js
 /** Local SSH authority manager and transparent official-API proxy. */
 const name = "dsh-remote";
-const inject = ["settings", "webServer"];
+const inject = [
+	"sessionRelay",
+	"settings",
+	"webServer"
+];
 const CONTROL_PATH = "/dsh-remote/control";
 const AUTHORITY_PREFIX = "/dsh-remote/authority";
 const MAX_BODY_BYTES = 1048576;
@@ -197,21 +301,28 @@ var RemoteAuthorityManager = class {
 	settings;
 	webServer;
 	connectTimeoutSeconds;
+	sessionRelay;
 	forwards = /* @__PURE__ */ new Map();
 	errors = /* @__PURE__ */ new Map();
+	relayErrors = /* @__PURE__ */ new Map();
 	upgradeDisposers = /* @__PURE__ */ new Map();
-	constructor(settings, webServer, connectTimeoutSeconds) {
+	relayProviders = /* @__PURE__ */ new Map();
+	relayDisposers = /* @__PURE__ */ new Map();
+	constructor(settings, webServer, connectTimeoutSeconds, sessionRelay) {
 		this.settings = settings;
 		this.webServer = webServer;
 		this.connectTimeoutSeconds = connectTimeoutSeconds;
+		this.sessionRelay = sessionRelay;
 		for (const connection of settings.get().connections) this.registerUpgrades(connection.id);
 	}
 	state() {
 		return { connections: this.settings.get().connections.map((connection) => ({
 			...connection,
 			connected: this.forwards.has(connection.id),
+			relayConnected: this.relayProviders.has(connection.id),
 			basePath: authorityBasePath(connection.id),
-			...this.errors.has(connection.id) ? { error: this.errors.get(connection.id) } : {}
+			...this.errors.has(connection.id) ? { error: this.errors.get(connection.id) } : {},
+			...this.relayErrors.has(connection.id) ? { relayError: this.relayErrors.get(connection.id) } : {}
 		})) };
 	}
 	async run(action) {
@@ -245,22 +356,46 @@ var RemoteAuthorityManager = class {
 	async connect(connectionId) {
 		if (this.forwards.has(connectionId)) return;
 		const config = this.connectionConfig(connectionId);
+		let forward;
 		try {
 			await ensureRemoteWebHost(config, this.connectTimeoutSeconds);
-			const forward = await openRemoteApiForward({
+			forward = await openRemoteApiForward({
 				host: config.host,
 				remotePort: config.remotePort,
 				connectTimeoutSeconds: this.connectTimeoutSeconds
 			});
 			await waitForTcp(forward.localPort, this.connectTimeoutSeconds * 1e3);
 			this.forwards.set(connectionId, forward);
+			try {
+				let provider;
+				provider = await RemoteSessionRelayProvider.connect({
+					authorityId: connectionId,
+					peerId: `host:${connectionId}`,
+					forward,
+					requestTimeoutMs: this.connectTimeoutSeconds * 1e3,
+					receive: (message) => this.receiveRelay(connectionId, message),
+					listSessions: () => this.sessionRelay.listLocalSessions(),
+					closed: (error) => {
+						if (provider !== void 0) this.relayClosed(connectionId, provider, error);
+					}
+				});
+				this.relayProviders.set(connectionId, provider);
+				this.relayDisposers.set(connectionId, this.sessionRelay.registerProvider(provider));
+				this.relayErrors.delete(connectionId);
+			} catch (error) {
+				this.relayErrors.set(connectionId, relayUnavailableMessage(error));
+			}
 			this.errors.delete(connectionId);
 			forward.process.once("exit", (code, signal) => {
 				if (this.forwards.get(connectionId) !== forward) return;
 				this.forwards.delete(connectionId);
+				this.closeRelay(connectionId);
 				this.errors.set(connectionId, `ssh forward exited (${code === null ? signal : String(code)})`);
 			});
 		} catch (error) {
+			this.forwards.delete(connectionId);
+			await this.closeRelay(connectionId);
+			await forward?.close().catch(() => void 0);
 			const message = errorMessage(error);
 			this.errors.set(connectionId, message);
 			throw new Error(message);
@@ -270,6 +405,7 @@ var RemoteAuthorityManager = class {
 		const forward = this.forwards.get(connectionId);
 		if (forward === void 0) return;
 		this.forwards.delete(connectionId);
+		await this.closeRelay(connectionId);
 		await forward.close();
 	}
 	/** Restart the DSH Web process owned by this plugin before reconnecting. */
@@ -352,6 +488,33 @@ var RemoteAuthorityManager = class {
 		for (const dispose of this.upgradeDisposers.values()) dispose();
 		this.upgradeDisposers.clear();
 	}
+	async closeRelay(connectionId) {
+		this.relayDisposers.get(connectionId)?.();
+		this.relayDisposers.delete(connectionId);
+		const provider = this.relayProviders.get(connectionId);
+		this.relayProviders.delete(connectionId);
+		await provider?.close();
+	}
+	relayClosed(connectionId, provider, error) {
+		if (this.relayProviders.get(connectionId) !== provider) return;
+		this.relayDisposers.get(connectionId)?.();
+		this.relayDisposers.delete(connectionId);
+		this.relayProviders.delete(connectionId);
+		this.relayErrors.set(connectionId, relayUnavailableMessage(error));
+	}
+	async receiveRelay(connectionId, message) {
+		await this.sessionRelay.receive({
+			...message,
+			from: {
+				authorityId: message.from.authorityId === "local" ? connectionId : message.from.authorityId,
+				sessionId: message.from.sessionId
+			},
+			to: {
+				authorityId: "local",
+				sessionId: message.to.sessionId
+			}
+		});
+	}
 	connectionConfig(connectionId) {
 		const config = this.settings.get().connections.find((entry) => entry.id === connectionId);
 		if (config === void 0) throw new Error(`unknown remote connection: ${connectionId}`);
@@ -379,7 +542,7 @@ function apply(ctx, config = {}) {
 		host: z.string().required(),
 		remotePort: z.number().min(1).max(65535).default(3090)
 	})).default([]) }), { base });
-	const manager = new RemoteAuthorityManager(settings, ctx.webServer, config.sshConnectTimeoutSeconds ?? 10);
+	const manager = new RemoteAuthorityManager(settings, ctx.webServer, config.sshConnectTimeoutSeconds ?? 10, ctx.get("sessionRelay"));
 	ctx.effect(() => () => manager.dispose(), "dsh-remote.authorities");
 	ctx.effect(() => ctx.webServer.register({
 		kind: "exact",
@@ -562,6 +725,10 @@ function json(res, status, body) {
 }
 function errorMessage(error) {
 	return error instanceof Error ? error.message : String(error);
+}
+function relayUnavailableMessage(error) {
+	const detail = errorMessage(error);
+	return `session relay unavailable; install dsh-session-control and dsh-remote in the remote Web profile${detail === "" ? "" : ` (${detail})`}`;
 }
 /** Forward one WebSocket message without changing its text/binary opcode. */
 function relayWebSocketMessage(target, data, isBinary) {

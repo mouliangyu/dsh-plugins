@@ -9,7 +9,10 @@ declare module "@deepseek-ai/dsh-agent" {
     readonly id: SessionId;
     readonly options: unknown;
     readonly status: string;
-    readonly session: { readonly header: { readonly cwd?: string } };
+    readonly session: {
+      readonly header: { readonly cwd?: string };
+      readonly events: readonly unknown[];
+    };
     followup(message: unknown): void;
     cancel(reason: unknown, options: { keepInbox: boolean }): void;
   }
@@ -86,6 +89,10 @@ declare module "@deepseek-ai/cordis" {
     readonly createdAt: number;
   }
 
+  interface SessionInspection {
+    readonly events: readonly unknown[];
+  }
+
   export interface Context {
     readonly agents: {
       create(options: unknown): Promise<AgentHandle>;
@@ -94,10 +101,45 @@ declare module "@deepseek-ai/cordis" {
     };
     readonly sessionPersistence: {
       list(): Promise<readonly SessionHeader[]>;
+      inspect(id: SessionId): Promise<SessionInspection>;
+    };
+    readonly apiProxy: {
+      readonly sessions: {
+        prompt(request: {
+          readonly rpcId: string;
+          readonly payload: {
+            readonly sessionId: SessionId;
+            readonly mode: "queue";
+            readonly content: ReadonlyArray<{ readonly type: "text"; readonly text: string }>;
+          };
+        }): Promise<
+          | { readonly result: { readonly ok: true; readonly value: { readonly accepted: true } } }
+          | { readonly result: { readonly ok: false; readonly error: { readonly message: string } } }
+        >;
+        list(request: {
+          readonly rpcId: string;
+          readonly payload: Record<string, never>;
+        }): Promise<
+          | {
+              readonly result: {
+                readonly ok: true;
+                readonly value: {
+                  readonly items: ReadonlyArray<{
+                    readonly sessionId: SessionId;
+                    readonly updatedAt: number;
+                    readonly running: boolean;
+                    readonly cwd?: string;
+                  }>;
+                };
+              };
+            }
+          | { readonly result: { readonly ok: false; readonly error: { readonly message: string } } }
+        >;
+      };
     };
     readonly sessionQuery: {
       readTitleSnapshots(ids: readonly SessionId[]): Promise<
-        readonly Array<
+        ReadonlyArray<
           | {
               readonly status: "fulfilled";
               readonly sessionId: SessionId;
@@ -120,6 +162,7 @@ declare module "@deepseek-ai/cordis" {
     readonly tools: { register(tool: ToolDefinition): void };
     readonly webServer: {
       register(route: unknown): () => void;
+      registerUpgrade(route: unknown): () => void;
     };
     readonly workspaceRegistry: {
       list(): Workspace[];
@@ -136,6 +179,8 @@ declare module "@deepseek-ai/cordis" {
       setup: () => void | (() => void) | Promise<unknown>,
       label?: string,
     ): void;
+    provide(name: string, value: unknown): void;
+    get(name: string): unknown;
   }
 }
 

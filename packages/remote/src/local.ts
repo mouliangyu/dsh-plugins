@@ -10,14 +10,16 @@ import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import { settingsNamespace, type SettingsScope } from '@deepseek-ai/dsh-settings'
 import { WebSocket, WebSocketServer } from 'ws'
 import type { RawData } from 'ws'
+import type { SessionRelay, SessionRelayService } from 'dsh-session-control/relay'
 import type { RemoteAction, RemoteConnectionConfig, RemoteStateView, SshHostView } from './local-contract.ts'
 import { discoverSshHostAliases } from './ssh-config.ts'
+import { RemoteSessionRelayProvider } from './session-relay.ts'
 import { openRemoteApiForward, type RemoteApiForward } from './transparent.ts'
 
 export type * from './local-contract.ts'
 
 export const name = 'dsh-remote'
-export const inject = ['settings', 'webServer']
+export const inject = ['sessionRelay', 'settings', 'webServer']
 
 const CONTROL_PATH = '/dsh-remote/control'
 const AUTHORITY_PREFIX = '/dsh-remote/authority'
@@ -48,12 +50,16 @@ export const Config: z<LocalConfig> = z.object({
 class RemoteAuthorityManager {
   private readonly forwards = new Map<string, RemoteApiForward>()
   private readonly errors = new Map<string, string>()
+  private readonly relayErrors = new Map<string, string>()
   private readonly upgradeDisposers = new Map<string, () => void>()
+  private readonly relayProviders = new Map<string, RemoteSessionRelayProvider>()
+  private readonly relayDisposers = new Map<string, () => void>()
 
   constructor(
     private readonly settings: SettingsScope<{ connections: RemoteConnectionConfig[] }>,
     private readonly webServer: WebServer,
     private readonly connectTimeoutSeconds: number,
+    private readonly sessionRelay: SessionRelayService,
   ) {
     for (const connection of settings.get().connections) this.registerUpgrades(connection.id)
   }
@@ -62,8 +68,10 @@ class RemoteAuthorityManager {
     return { connections: this.settings.get().connections.map((connection) => ({
       ...connection,
       connected: this.forwards.has(connection.id),
+      relayConnected: this.relayProviders.has(connection.id),
       basePath: authorityBasePath(connection.id),
       ...(this.errors.has(connection.id) ? { error: this.errors.get(connection.id) } : {}),
+      ...(this.relayErrors.has(connection.id) ? { relayError: this.relayErrors.get(connection.id) } : {}),
     })) }
   }
 
@@ -104,22 +112,46 @@ class RemoteAuthorityManager {
   async connect(connectionId: string): Promise<void> {
     if (this.forwards.has(connectionId)) return
     const config = this.connectionConfig(connectionId)
+    let forward: RemoteApiForward | undefined
     try {
       await ensureRemoteWebHost(config, this.connectTimeoutSeconds)
-      const forward = await openRemoteApiForward({
+      forward = await openRemoteApiForward({
         host: config.host,
         remotePort: config.remotePort,
         connectTimeoutSeconds: this.connectTimeoutSeconds,
       })
       await waitForTcp(forward.localPort, this.connectTimeoutSeconds * 1000)
       this.forwards.set(connectionId, forward)
+      try {
+        let provider: RemoteSessionRelayProvider | undefined
+        provider = await RemoteSessionRelayProvider.connect({
+          authorityId: connectionId,
+          peerId: `host:${connectionId}`,
+          forward,
+          requestTimeoutMs: this.connectTimeoutSeconds * 1000,
+          receive: message => this.receiveRelay(connectionId, message),
+          listSessions: () => this.sessionRelay.listLocalSessions(),
+          closed: error => {
+            if (provider !== undefined) this.relayClosed(connectionId, provider, error)
+          },
+        })
+        this.relayProviders.set(connectionId, provider)
+        this.relayDisposers.set(connectionId, this.sessionRelay.registerProvider(provider))
+        this.relayErrors.delete(connectionId)
+      } catch (error) {
+        this.relayErrors.set(connectionId, relayUnavailableMessage(error))
+      }
       this.errors.delete(connectionId)
       forward.process.once('exit', (code, signal) => {
         if (this.forwards.get(connectionId) !== forward) return
         this.forwards.delete(connectionId)
+        void this.closeRelay(connectionId)
         this.errors.set(connectionId, `ssh forward exited (${code === null ? signal : String(code)})`)
       })
     } catch (error) {
+      this.forwards.delete(connectionId)
+      await this.closeRelay(connectionId)
+      await forward?.close().catch(() => undefined)
       const message = errorMessage(error)
       this.errors.set(connectionId, message)
       throw new Error(message)
@@ -130,6 +162,7 @@ class RemoteAuthorityManager {
     const forward = this.forwards.get(connectionId)
     if (forward === undefined) return
     this.forwards.delete(connectionId)
+    await this.closeRelay(connectionId)
     await forward.close()
   }
 
@@ -197,6 +230,30 @@ class RemoteAuthorityManager {
     this.upgradeDisposers.clear()
   }
 
+  private async closeRelay(connectionId: string): Promise<void> {
+    this.relayDisposers.get(connectionId)?.()
+    this.relayDisposers.delete(connectionId)
+    const provider = this.relayProviders.get(connectionId)
+    this.relayProviders.delete(connectionId)
+    await provider?.close()
+  }
+
+  private relayClosed(connectionId: string, provider: RemoteSessionRelayProvider, error: Error): void {
+    if (this.relayProviders.get(connectionId) !== provider) return
+    this.relayDisposers.get(connectionId)?.()
+    this.relayDisposers.delete(connectionId)
+    this.relayProviders.delete(connectionId)
+    this.relayErrors.set(connectionId, relayUnavailableMessage(error))
+  }
+
+  private async receiveRelay(connectionId: string, message: SessionRelay): Promise<void> {
+    await this.sessionRelay.receive({
+      ...message,
+      from: { authorityId: message.from.authorityId === 'local' ? connectionId : message.from.authorityId, sessionId: message.from.sessionId },
+      to: { authorityId: 'local', sessionId: message.to.sessionId },
+    })
+  }
+
   private connectionConfig(connectionId: string): RemoteConnectionConfig {
     const config = this.settings.get().connections.find(entry => entry.id === connectionId)
     if (config === undefined) throw new Error(`unknown remote connection: ${connectionId}`)
@@ -228,6 +285,7 @@ export function apply(ctx: Context, config: LocalConfig = {}): void {
     settings,
     ctx.webServer,
     config.sshConnectTimeoutSeconds ?? 10,
+    ctx.get('sessionRelay') as SessionRelayService,
   )
   ctx.effect(() => () => manager.dispose(), 'dsh-remote.authorities')
   ctx.effect(() => ctx.webServer.register({
@@ -377,6 +435,11 @@ function json(res: ServerResponse, status: number, body: unknown): void {
 }
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error) }
+
+function relayUnavailableMessage(error: unknown): string {
+  const detail = errorMessage(error)
+  return `session relay unavailable; install dsh-session-control and dsh-remote in the remote Web profile${detail === '' ? '' : ` (${detail})`}`
+}
 
 /** Forward one WebSocket message without changing its text/binary opcode. */
 export function relayWebSocketMessage(
