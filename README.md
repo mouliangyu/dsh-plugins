@@ -10,6 +10,7 @@ shares build conventions, documentation, and compatibility checks.
 | --- | --- |
 | `session-control` | Global session and workspace management, with a Web settings switch. |
 | `dsh-remote` | Official DSH authorities over SSH with top-level Workspace, Session, and live event integration. |
+| `dsh-skill-stabilizer` | Stable per-step skill catalog: a fixed system-prompt section with a byte budget, suppressing the built-in digest-driven catalog message. |
 
 The repository is intentionally independent from the upstream
 `deepseek-harness` repository. `dsh-remote` targets the authority provider
