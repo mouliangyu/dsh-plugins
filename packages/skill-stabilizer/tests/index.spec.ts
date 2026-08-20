@@ -115,6 +115,7 @@ describe('dsh-skill-stabilizer', () => {
     expect(text).toContain('- `alpha`: Alpha skill for testing.')
     expect(text).toContain('- `beta`: Beta skill for testing.')
     expect(text).toContain('you MUST use that skill this turn')
+    expect(text).toContain('return to the loaded skill content and route from its instructions before acting')
   })
 
   it('renders nothing when no model-invocable skill exists', async () => {
@@ -129,7 +130,7 @@ describe('dsh-skill-stabilizer', () => {
 
   it('shortens descriptions equally under the byte budget and never drops names', async () => {
     const home = await tempDir('budget')
-    const ctx = await setup(home, { catalogMaxBytes: 1000 })
+    const ctx = await setup(home, { catalogMaxBytes: 2000 })
     for (let i = 0; i < 8; i++) {
       registerSkill(ctx, `skill-${i}`, `Skill number ${i} with a long description.`.repeat(40))
     }
@@ -143,7 +144,7 @@ describe('dsh-skill-stabilizer', () => {
     for (let i = 0; i < 8; i++) {
       expect(text).toContain(`- \`skill-${i}\``)
     }
-    expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(1000)
+    expect(new TextEncoder().encode(text).length).toBeLessThanOrEqual(2000)
     expect(text).not.toContain('long description'.repeat(2))
   })
 

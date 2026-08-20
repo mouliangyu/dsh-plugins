@@ -1,0 +1,7 @@
+# dsh-skill-stabilizer profile patch: mount the plugin after the base bundle's
+# `tool-skill` entry so its `agent/pre-step` filter and `system-prompt/assemble`
+# catalog section register after the built-in catalog publication (waterfall
+# listeners run in registration order).
+- insert:
+    - id: skill-stabilizer
+      name: "dsh-skill-stabilizer"

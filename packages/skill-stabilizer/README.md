@@ -27,6 +27,10 @@ a skill that is never consulted is a skill that wasn't presented well enough.
 3. **Enforces mandatory trigger rules.** The section says matching a skill's
    description obligates its use, and skipping an obvious match requires an
    explanation — Codex-strength rules rather than an optional reminder.
+   Loading a skill also obligates **re-consulting it at every later decision
+   point the skill governs** (entry path, mismatch handling, tool or
+   environment choice), so a loaded skill stays authoritative instead of
+   decaying into background context.
 4. **Bounded cost.** `catalogMaxBytes` (default 20000) shortens descriptions
    equally when the catalog overflows; skill names are never truncated or
    dropped. Real-world catalogs are a few KB, so sustained per-step injection
