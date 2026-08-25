@@ -185,6 +185,7 @@ window.__ModuleLoader__.load({
 		function apply(ctx) {
 			ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({
 				name: "settings.plugin.item",
+				key: "session-control",
 				id: "session-control",
 				order: 30
 			}, SessionControlSettingsCard));

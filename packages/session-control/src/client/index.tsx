@@ -150,6 +150,7 @@ export function apply(ctx: ClientContext): void {
     ctx.slots.register(
       {
         name: "settings.plugin.item",
+        key: "session-control",
         id: "session-control",
         order: 30,
       },
