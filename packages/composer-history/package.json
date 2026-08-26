@@ -1,0 +1,135 @@
+{
+  "name": "dsh-composer-history",
+  "version": "0.5.3-dsh.1",
+  "description": "Terminal-style input history for the DeepSeek Harness web composer: edge-first arrows with exact draft/caret restore, browser-local persisted history, Ctrl+R reverse search, workspace-scoped recall, and fully configurable keys — plus sliding-context awareness (compaction summaries join recall/search, a compaction notice with one-click /compact fill). dsh-plugins fork: authority-scoped history store + background preload so remote sessions recall their own history. See PATCHES.md.",
+  "private": false,
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mouliangyu/dsh-plugins.git",
+    "directory": "packages/composer-history"
+  },
+  "homepage": "https://github.com/mouliangyu/dsh-plugins/tree/main/packages/composer-history#readme",
+  "bugs": {
+    "url": "https://github.com/mouliangyu/dsh-plugins/issues"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
+    "src",
+    "docs",
+    "README*.md",
+    "CHANGELOG.md",
+    "PATCHES.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-input-trigger",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "dshWorkshop": {
+    "schema": "omdsh-workshop-package/v1",
+    "type": "plugin",
+    "integration": {
+      "protocol": "harness-profile",
+      "artifact": "cordis.patch.yml"
+    },
+    "install": {
+      "mode": "transactional",
+      "adapter": "profile-bundle",
+      "failurePolicy": "generation-rollback",
+      "touchesCurrentBeforeActivation": false
+    },
+    "lifecycle": {
+      "activation": "restart-plugin",
+      "dispose": "supported"
+    },
+    "permissions": [
+      "browser:local-storage"
+    ],
+    "compatibility": {
+      "dshVersions": [
+        "0.1.0-rc.8",
+        "0.1.1-rc.2"
+      ]
+    },
+    "capability": {
+      "id": "composer-history-recall",
+      "kind": "ui",
+      "invocation": "ArrowUp with the caret on the composer's first line",
+      "expected": "the newest user message fills the draft and the caret moves to its end"
+    },
+    "evidence": {
+      "install": null,
+      "failureIsolation": null,
+      "hotReload": null,
+      "remove": null
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "web-gui",
+    "composer",
+    "input-history",
+    "keyboard-shortcuts",
+    "terminal",
+    "compaction",
+    "sliding-context",
+    "context-window",
+    "typescript",
+    "ui",
+    "remote-authority"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "scripts": {
+    "test": "vitest run"
+  }
+}
