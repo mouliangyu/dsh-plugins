@@ -1,0 +1,5 @@
+# dsh-esc-stop profile patch: insert the loader row so the web profile
+# activates the package and serves the browser bundle.
+- insert:
+    - id: esc-stop
+      name: "dsh-esc-stop"
