@@ -54,12 +54,15 @@ class RemoteAuthorityManager {
   private readonly upgradeDisposers = new Map<string, () => void>()
   private readonly relayProviders = new Map<string, RemoteSessionRelayProvider>()
   private readonly relayDisposers = new Map<string, () => void>()
+  private readonly reconnectAttempts = new Map<string, number>()
+  private readonly reconnectTimers = new Map<string, NodeJS.Timeout>()
 
   constructor(
     private readonly settings: SettingsScope<{ connections: RemoteConnectionConfig[] }>,
     private readonly webServer: WebServer,
     private readonly connectTimeoutSeconds: number,
     private readonly sessionRelay: SessionRelayService,
+    private readonly autoConnect: boolean,
   ) {
     for (const connection of settings.get().connections) this.registerUpgrades(connection.id)
   }
@@ -122,6 +125,7 @@ class RemoteAuthorityManager {
       })
       await waitForTcp(forward.localPort, this.connectTimeoutSeconds * 1000)
       this.forwards.set(connectionId, forward)
+      this.reconnectAttempts.delete(connectionId)
       try {
         let provider: RemoteSessionRelayProvider | undefined
         provider = await RemoteSessionRelayProvider.connect({
@@ -147,6 +151,7 @@ class RemoteAuthorityManager {
         this.forwards.delete(connectionId)
         void this.closeRelay(connectionId)
         this.errors.set(connectionId, `ssh forward exited (${code === null ? signal : String(code)})`)
+        this.scheduleReconnect(connectionId)
       })
     } catch (error) {
       this.forwards.delete(connectionId)
@@ -159,11 +164,36 @@ class RemoteAuthorityManager {
   }
 
   async disconnect(connectionId: string): Promise<void> {
+    const timer = this.reconnectTimers.get(connectionId)
+    if (timer !== undefined) clearTimeout(timer)
+    this.reconnectTimers.delete(connectionId)
+    this.reconnectAttempts.delete(connectionId)
     const forward = this.forwards.get(connectionId)
     if (forward === undefined) return
     this.forwards.delete(connectionId)
     await this.closeRelay(connectionId)
     await forward.close()
+  }
+
+  /**
+   * Re-establish a dropped forward with exponential backoff. Runs only when
+   * autoConnect is enabled; a manual disconnect clears the pending attempt
+   * and a successful connect resets the backoff.
+   */
+  private scheduleReconnect(connectionId: string): void {
+    if (!this.autoConnect || this.reconnectTimers.has(connectionId)) return
+    const attempt = (this.reconnectAttempts.get(connectionId) ?? 0) + 1
+    this.reconnectAttempts.set(connectionId, attempt)
+    const delay = Math.min(1000 * 2 ** (attempt - 1), 30000)
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(connectionId)
+      if (this.forwards.has(connectionId)) return
+      void this.connect(connectionId).catch(() => {
+        // Forward still down; schedule the next attempt.
+        this.scheduleReconnect(connectionId)
+      })
+    }, delay)
+    this.reconnectTimers.set(connectionId, timer)
   }
 
   /** Restart the DSH Web process owned by this plugin before reconnecting. */
@@ -225,6 +255,9 @@ class RemoteAuthorityManager {
   }
 
   async dispose(): Promise<void> {
+    for (const timer of this.reconnectTimers.values()) clearTimeout(timer)
+    this.reconnectTimers.clear()
+    this.reconnectAttempts.clear()
     await Promise.all([...this.forwards.keys()].map(id => this.disconnect(id)))
     for (const dispose of this.upgradeDisposers.values()) dispose()
     this.upgradeDisposers.clear()
@@ -286,6 +319,7 @@ export function apply(ctx: Context, config: LocalConfig = {}): void {
     ctx.webServer,
     config.sshConnectTimeoutSeconds ?? 10,
     ctx.get('sessionRelay') as SessionRelayService,
+    config.autoConnect ?? true,
   )
   ctx.effect(() => () => manager.dispose(), 'dsh-remote.authorities')
   ctx.effect(() => ctx.webServer.register({

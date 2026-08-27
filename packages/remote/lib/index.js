@@ -302,17 +302,21 @@ var RemoteAuthorityManager = class {
 	webServer;
 	connectTimeoutSeconds;
 	sessionRelay;
+	autoConnect;
 	forwards = /* @__PURE__ */ new Map();
 	errors = /* @__PURE__ */ new Map();
 	relayErrors = /* @__PURE__ */ new Map();
 	upgradeDisposers = /* @__PURE__ */ new Map();
 	relayProviders = /* @__PURE__ */ new Map();
 	relayDisposers = /* @__PURE__ */ new Map();
-	constructor(settings, webServer, connectTimeoutSeconds, sessionRelay) {
+	reconnectAttempts = /* @__PURE__ */ new Map();
+	reconnectTimers = /* @__PURE__ */ new Map();
+	constructor(settings, webServer, connectTimeoutSeconds, sessionRelay, autoConnect) {
 		this.settings = settings;
 		this.webServer = webServer;
 		this.connectTimeoutSeconds = connectTimeoutSeconds;
 		this.sessionRelay = sessionRelay;
+		this.autoConnect = autoConnect;
 		for (const connection of settings.get().connections) this.registerUpgrades(connection.id);
 	}
 	state() {
@@ -366,6 +370,7 @@ var RemoteAuthorityManager = class {
 			});
 			await waitForTcp(forward.localPort, this.connectTimeoutSeconds * 1e3);
 			this.forwards.set(connectionId, forward);
+			this.reconnectAttempts.delete(connectionId);
 			try {
 				let provider;
 				provider = await RemoteSessionRelayProvider.connect({
@@ -391,6 +396,7 @@ var RemoteAuthorityManager = class {
 				this.forwards.delete(connectionId);
 				this.closeRelay(connectionId);
 				this.errors.set(connectionId, `ssh forward exited (${code === null ? signal : String(code)})`);
+				this.scheduleReconnect(connectionId);
 			});
 		} catch (error) {
 			this.forwards.delete(connectionId);
@@ -402,11 +408,34 @@ var RemoteAuthorityManager = class {
 		}
 	}
 	async disconnect(connectionId) {
+		const timer = this.reconnectTimers.get(connectionId);
+		if (timer !== void 0) clearTimeout(timer);
+		this.reconnectTimers.delete(connectionId);
+		this.reconnectAttempts.delete(connectionId);
 		const forward = this.forwards.get(connectionId);
 		if (forward === void 0) return;
 		this.forwards.delete(connectionId);
 		await this.closeRelay(connectionId);
 		await forward.close();
+	}
+	/**
+	* Re-establish a dropped forward with exponential backoff. Runs only when
+	* autoConnect is enabled; a manual disconnect clears the pending attempt
+	* and a successful connect resets the backoff.
+	*/
+	scheduleReconnect(connectionId) {
+		if (!this.autoConnect || this.reconnectTimers.has(connectionId)) return;
+		const attempt = (this.reconnectAttempts.get(connectionId) ?? 0) + 1;
+		this.reconnectAttempts.set(connectionId, attempt);
+		const delay = Math.min(1e3 * 2 ** (attempt - 1), 3e4);
+		const timer = setTimeout(() => {
+			this.reconnectTimers.delete(connectionId);
+			if (this.forwards.has(connectionId)) return;
+			this.connect(connectionId).catch(() => {
+				this.scheduleReconnect(connectionId);
+			});
+		}, delay);
+		this.reconnectTimers.set(connectionId, timer);
 	}
 	/** Restart the DSH Web process owned by this plugin before reconnecting. */
 	async restart(connectionId) {
@@ -484,6 +513,9 @@ var RemoteAuthorityManager = class {
 		});
 	}
 	async dispose() {
+		for (const timer of this.reconnectTimers.values()) clearTimeout(timer);
+		this.reconnectTimers.clear();
+		this.reconnectAttempts.clear();
 		await Promise.all([...this.forwards.keys()].map((id) => this.disconnect(id)));
 		for (const dispose of this.upgradeDisposers.values()) dispose();
 		this.upgradeDisposers.clear();
@@ -542,7 +574,7 @@ function apply(ctx, config = {}) {
 		host: z.string().required(),
 		remotePort: z.number().min(1).max(65535).default(3090)
 	})).default([]) }), { base });
-	const manager = new RemoteAuthorityManager(settings, ctx.webServer, config.sshConnectTimeoutSeconds ?? 10, ctx.get("sessionRelay"));
+	const manager = new RemoteAuthorityManager(settings, ctx.webServer, config.sshConnectTimeoutSeconds ?? 10, ctx.get("sessionRelay"), config.autoConnect ?? true);
 	ctx.effect(() => () => manager.dispose(), "dsh-remote.authorities");
 	ctx.effect(() => ctx.webServer.register({
 		kind: "exact",
