@@ -18,20 +18,20 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 		var RemoteSettingsSection_module_css_default = {
+			"iconButton": "ghiA-a_iconButton",
+			"empty": "ghiA-a_empty",
+			"form": "ghiA-a_form",
+			"error": "ghiA-a_error",
+			"root": "ghiA-a_root",
+			"formActions": "ghiA-a_formActions",
+			"row": "ghiA-a_row",
+			"listButton": "ghiA-a_listButton",
+			"rowMain": "ghiA-a_rowMain",
 			"connectionList": "ghiA-a_connectionList",
 			"remote-spin": "ghiA-a_remote-spin",
-			"iconButton": "ghiA-a_iconButton",
-			"form": "ghiA-a_form",
 			"hostEmpty": "ghiA-a_hostEmpty",
-			"error": "ghiA-a_error",
-			"empty": "ghiA-a_empty",
-			"row": "ghiA-a_row",
-			"header": "ghiA-a_header",
 			"spinning": "ghiA-a_spinning",
-			"listButton": "ghiA-a_listButton",
-			"root": "ghiA-a_root",
-			"rowMain": "ghiA-a_rowMain",
-			"formActions": "ghiA-a_formActions"
+			"header": "ghiA-a_header"
 		};
 		//#endregion
 		//#region src/client/RemoteSettingsSection.tsx

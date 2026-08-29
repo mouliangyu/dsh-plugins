@@ -224,6 +224,10 @@ async function openRemoteApiForward(options) {
 		"ExitOnForwardFailure=yes",
 		"-o",
 		`ConnectTimeout=${timeout}`,
+		"-o",
+		"ServerAliveInterval=15",
+		"-o",
+		"ServerAliveCountMax=4",
 		"-L",
 		`127.0.0.1:${reserved.localPort}:127.0.0.1:${options.remotePort}`,
 		options.host

@@ -57,6 +57,10 @@ export async function openRemoteApiForward(options: RemoteApiForwardOptions): Pr
   const timeout = options.connectTimeoutSeconds ?? 10
   const process = launch('ssh', [
     '-N', '-T', '-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-o', `ConnectTimeout=${timeout}`,
+    // Keepalive probes so silent drops (remote hang, blackholed network) also
+    // terminate the tunnel instead of hanging forever — that exit is what
+    // triggers the host-side auto-reconnect.
+    '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4',
     '-L', `127.0.0.1:${reserved.localPort}:127.0.0.1:${options.remotePort}`,
     options.host,
   ], { stdio: ['pipe', 'pipe', 'pipe'] })
