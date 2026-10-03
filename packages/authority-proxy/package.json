@@ -1,0 +1,49 @@
+{
+  "name": "dsh-authority-proxy",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Host+client carrier for extra dsh authorities: same-origin prefix proxy (host) and per-authority remote contexts (client)",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": {
+      "types": "./lib/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "lib/supervisor.js",
+    "lib/client.d.ts",
+    "README.md"
+  ],
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-api-gateway",
+        "@deepseek-ai/dsh-api-remotes"
+      ],
+      "platform": "web"
+    }
+  },
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.21.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mouliangyu/dsh-plugins.git",
+    "directory": "packages/authority-proxy"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "ssh",
+    "multi-host",
+    "remote"
+  ]
+}
